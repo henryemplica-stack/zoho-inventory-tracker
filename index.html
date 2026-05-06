@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoho Stock Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --border: #E2E0D8;
+    --text: #1A1A18;
+    --muted: #888780;
+    --accent: #1A1A18;
+    --green: #2D6A4F;
+    --green-bg: #D8F3DC;
+    --blue: #1B4F72;
+    --blue-bg: #D6EAF8;
+    --amber: #7D4E00;
+    --amber-bg: #FEF3CD;
+    --red: #7B241C;
+    --red-bg: #FADBD8;
+    --purple: #4A235A;
+    --purple-bg: #E8DAEF;
+    --gray: #444441;
+    --gray-bg: #F1EFE8;
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--text);
+    color: white;
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  header .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  header .sep { opacity: 0.2; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  .search-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    border: 1.5px solid var(--text);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 14px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    color: var(--text);
+    background: transparent;
+    letter-spacing: 0.04em;
+  }
+
+  .search-bar input::placeholder { color: var(--muted); }
+
+  .search-bar button {
+    background: var(--text);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s;
+  }
+
+  .search-bar button:hover { opacity: 0.8; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-value.warn { color: #B7770D; }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed;
+  }
+
+  thead th {
+    background: var(--bg);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  tbody tr.force-row { background: #FFFBEB; }
+  tbody tr.force-row:hover { background: #FEF3CD; }
+
+  td {
+    padding: 12px 16px;
+    vertical-align: middle;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .qty { font-family: 'IBM Plex Mono', monospace; font-weight: 500; text-align: right; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .b-confirmed  { background: var(--green-bg);  color: var(--green); }
+  .b-invoiced   { background: var(--blue-bg);   color: var(--blue); }
+  .b-shipped    { background: var(--green-bg);  color: var(--green); }
+  .b-void       { background: var(--gray-bg);   color: var(--gray); }
+  .b-fulfilled  { background: var(--purple-bg); color: var(--purple); }
+  .b-force      { background: var(--amber-bg);  color: var(--amber); }
+  .b-default    { background: var(--gray-bg);   color: var(--gray); }
+
+  .alert-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background: var(--amber-bg);
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .big { font-size: 32px; font-family: 'IBM Plex Mono', monospace; margin-bottom: 12px; opacity: 0.3; }
+  .empty-state p { font-size: 14px; }
+
+  .result-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .error-box {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid #F1948A;
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-size: 14px;
+  }
+
+  .date-filter {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    flex-wrap: wrap;
+  }
+
+  .date-filter label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .date-filter input[type=date] {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 7px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+  }
+
+  .date-filter input[type=date]:focus { border-color: var(--text); }
+
+  .date-sep { color: var(--muted); font-size: 13px; }
+
+  .date-filter .clear-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .date-filter .clear-btn:hover { color: var(--text); border-color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">FCS</span>
+  <span class="sep">/</span>
+  <h1>Stock Movement Tracker</h1>
+</header>
+
+<div class="container">
+  <div class="search-bar">
+    <input type="text" id="sku-input" placeholder="Digite o SKU..." autocomplete="off" />
+    <button onclick="buscar()">Buscar</button>
+  </div>
+
+  <div class="date-filter">
+    <label>Período</label>
+    <input type="date" id="date-from" />
+    <span class="date-sep">→</span>
+    <input type="date" id="date-to" />
+    <button class="clear-btn" onclick="clearDates()">Limpar datas</button>
+  </div>
+
+  <div id="stats-wrap" style="display:none">
+    <div class="stats-grid" id="stats"></div>
+  </div>
+
+  <div id="resultado">
+    <div class="empty-state">
+      <div class="big">—</div>
+      <p>Pesquise um SKU para ver a movimentação</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = "1j6D_5NN07ovQa62wVvWs_7n6uXjystpVNHoJFsNe32Y"
+
+async function loadSheet() {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Sheet1&headers=1`
+  const res = await fetch(url)
+  const text = await res.text()
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)
+  if (!match) throw new Error("Não foi possível ler a planilha. Verifique se está pública.")
+  const json = JSON.parse(match[1])
+  if (!json.table || !json.table.rows) return []
+  return json.table.rows.map(r => ({
+    timestamp: r.c[0]?.v || r.c[0]?.f || "",
+    module: r.c[1]?.v || "",
+    event_type: r.c[2]?.v || "",
+    salesorder_id: r.c[3]?.v || "",
+    salesorder_number: r.c[4]?.v || "",
+    status: r.c[5]?.v || "",
+    sku: r.c[6]?.v || "",
+    quantity: r.c[7]?.v || "",
+  })).filter(r => r.sku && r.sku !== "sku")
+}
+
+function getBadge(status) {
+  const s = (status || "").toLowerCase()
+  if (s.includes("force")) return `<span class="badge b-force">&#9651; Force fulfill</span>`
+  if (s.includes("confirmed")) return `<span class="badge b-confirmed">${status}</span>`
+  if (s.includes("invoiced")) return `<span class="badge b-invoiced">${status}</span>`
+  if (s.includes("shipped")) return `<span class="badge b-shipped">${status}</span>`
+  if (s.includes("void")) return `<span class="badge b-void">${status}</span>`
+  if (s.includes("fulfilled")) return `<span class="badge b-fulfilled">${status}</span>`
+  return `<span class="badge b-default">${status || "-"}</span>`
+}
+
+function formatDate(ts) {
+  if (!ts) return "-"
+  try {
+    const d = new Date(ts)
+    return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" })
+  } catch { return String(ts) }
+}
+
+async function buscar() {
+  const sku = document.getElementById("sku-input").value.trim().toUpperCase()
+  const res = document.getElementById("resultado")
+  const statsWrap = document.getElementById("stats-wrap")
+  const statsEl = document.getElementById("stats")
+
+  if (!sku) return
+
+  res.innerHTML = `<div class="empty-state"><div class="big">...</div><p>Buscando movimentações</p></div>`
+  statsWrap.style.display = "none"
+
+  try {
+    const rows = await loadSheet()
+    const dateFrom = document.getElementById("date-from").value
+    const dateTo = document.getElementById("date-to").value
+
+    const found = rows.filter(r => {
+      const skuMatch = r.sku.split(",").map(s => s.trim().toUpperCase()).includes(sku)
+      if (!skuMatch) return false
+      if (dateFrom || dateTo) {
+        const ts = new Date(r.timestamp)
+        if (dateFrom && ts < new Date(dateFrom)) return false
+        if (dateTo && ts > new Date(dateTo + "T23:59:59")) return false
+      }
+      return true
+    })
+
+    if (!found.length) {
+      res.innerHTML = `<div class="empty-state"><div class="big">0</div><p>Nenhuma movimentação encontrada para <strong>${sku}</strong></p></div>`
+      return
+    }
+
+    let totalQty = 0
+    found.forEach(r => {
+      const skus = r.sku.split(",").map(s => s.trim().toUpperCase())
+      const qtys = r.quantity.toString().split(",").map(s => parseInt(s.trim()) || 0)
+      const idx = skus.indexOf(sku)
+      if (idx >= 0) totalQty += qtys[idx] || 0
+    })
+
+    const forceCount = found.filter(r => (r.status||"").toLowerCase().includes("force")).length
+    const statuses = [...new Set(found.map(r => r.status).filter(Boolean))]
+
+    statsWrap.style.display = "block"
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="stat-label">Movimentações</div><div class="stat-value">${found.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Qtd total</div><div class="stat-value">${totalQty.toLocaleString("pt-BR")}</div></div>
+      <div class="stat-card"><div class="stat-label">Force fulfils</div><div class="stat-value ${forceCount > 0 ? 'warn' : ''}">${forceCount}</div></div>
+      <div class="stat-card"><div class="stat-label">Status únicos</div><div class="stat-value">${statuses.length}</div></div>
+    `
+
+    const tableRows = found.map(r => {
+      const skus = r.sku.split(",").map(s => s.trim().toUpperCase())
+      const qtys = r.quantity.toString().split(",").map(s => s.trim())
+      const idx = skus.indexOf(sku)
+      const qty = idx >= 0 ? qtys[idx] : "-"
+      const isForce = (r.status||"").toLowerCase().includes("force")
+      return `<tr class="${isForce ? 'force-row' : ''}">
+        <td class="mono" style="width:130px">${formatDate(r.timestamp)}</td>
+        <td class="mono" style="width:120px">${r.salesorder_number || "-"}</td>
+        <td style="width:160px">${getBadge(r.status || r.event_type)}</td>
+        <td class="qty" style="width:80px">${qty}</td>
+        <td style="width:140px">${isForce ? '<span class="alert-pill">&#9651; Alerta</span>' : ''}</td>
+      </tr>`
+    }).join("")
+
+    res.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:130px">Data</th>
+            <th style="width:120px">Sales order</th>
+            <th style="width:160px">Status</th>
+            <th style="width:80px; text-align:right">Qtd</th>
+            <th style="width:140px">Alerta</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <p class="result-meta">${found.length} resultado(s) para ${sku}</p>
+    `
+  } catch(e) {
+    res.innerHTML = `<div class="error-box"><strong>Erro:</strong> ${e.message}</div>`
+  }
+}
+
+document.getElementById("sku-input").addEventListener("keydown", e => { if (e.key === "Enter") buscar() })
+
+function clearDates() {
+  document.getElementById("date-from").value = ""
+  document.getElementById("date-to").value = ""
+}
+</script>
+</body>
+</html>
