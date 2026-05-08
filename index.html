@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCS Can — Stock Movement Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F5F5F5; --surface: #FFFFFF; --border: #D6D6D6; --text: #000000; --muted: #4B4B4D;
+    --red: #E30613; --red-bg: #FDECEA;
+    --green: #2D6A4F; --green-bg: #D8F3DC;
+    --blue: #2F4F6F; --blue-bg: #D6E8F5;
+    --amber: #7D4E00; --amber-bg: #FEF3CD;
+    --purple: #4A235A; --purple-bg: #E8DAEF;
+    --teal: #0E6655; --teal-bg: #D1F2EB;
+    --gray: #4B4B4D; --gray-bg: #EBEBEB;
+  }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header { background: #000; padding: 0 40px; display: flex; align-items: center; height: 64px; border-bottom: 3px solid var(--red); }
+  header .logo-wrap { display: flex; align-items: center; gap: 20px; }
+  header .company-name { color: white; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  header .divider { width: 1px; height: 28px; background: rgba(255,255,255,0.2); }
+  header .app-name { color: white; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; opacity: 0.7; }
+  header .tagline { color: rgba(255,255,255,0.4); font-size: 11px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  .tabs { background: #111; border-bottom: 1px solid #333; display: flex; padding: 0 40px; }
+  .tab { color: rgba(255,255,255,0.4); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 12px 20px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: rgba(255,255,255,0.7); }
+  .tab.active { color: white; border-bottom-color: var(--red); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .container { max-width: 1040px; margin: 0 auto; padding: 36px 24px; }
+
+  .search-row { display: flex; margin-bottom: 16px; border: 2px solid var(--text); border-radius: 3px; overflow: hidden; background: var(--surface); }
+  .search-row input { flex: 1; border: none; outline: none; padding: 13px 20px; font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: var(--text); background: transparent; letter-spacing: 0.04em; }
+  .search-row input::placeholder { color: var(--muted); opacity: 0.5; }
+  .search-row button { background: var(--red); color: white; border: none; padding: 13px 32px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em; transition: background 0.15s; }
+  .search-row button:hover { background: #c00510; }
+  .search-row button:disabled { background: #999; cursor: not-allowed; }
+
+  .item-info-bar { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--red); border-radius: 3px; padding: 12px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .item-info-bar.hidden { display: none; }
+  .item-info-field { display: flex; flex-direction: column; gap: 2px; }
+  .item-info-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .item-info-value { font-size: 14px; font-weight: 500; }
+  .item-info-value.mono { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .item-info-loading { font-size: 12px; color: var(--muted); font-style: italic; }
+  .stock-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--blue-bg); color: var(--blue); font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 2px; }
+  .count-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-bg); color: var(--green); font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 2px; }
+  .count-badge-warn { display: inline-flex; align-items: center; gap: 6px; background: var(--amber-bg); color: var(--amber); font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 2px; }
+
+  .period-row { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; padding: 13px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; flex-wrap: wrap; }
+  .period-row label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); white-space: nowrap; }
+  .period-row input[type=date] { border: 1px solid var(--border); border-radius: 2px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); background: var(--bg); outline: none; }
+  .period-row input[type=date]:focus { border-color: var(--red); }
+  .period-row .sep { color: var(--muted); font-size: 13px; }
+  .period-row .opening-wrap { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .opening-input { width: 110px; border: 1px solid var(--border); border-radius: 2px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); background: var(--bg); outline: none; text-align: right; }
+  .opening-input:focus { border-color: var(--red); }
+  .opening-input.from-count { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+  .opening-input.from-calc { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+  .opening-note { font-size: 10px; color: var(--muted); font-style: italic; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-bottom: 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 14px 16px; border-top: 3px solid var(--border); }
+  .stat.has-alert { border-top-color: var(--red); }
+  .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 400; line-height: 1; }
+  .stat-value.positive { color: var(--green); }
+  .stat-value.negative { color: var(--red); }
+  .stat-value.warn { color: var(--red); }
+
+  .reconcile-box { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 20px 24px; margin-bottom: 24px; border-left: 4px solid var(--red); }
+  .reconcile-box h3 { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 16px; }
+  .reconcile-grid { display: grid; gap: 0; }
+  .reconcile-item { padding: 0 20px; border-right: 1px solid var(--border); }
+  .reconcile-item:first-child { padding-left: 0; }
+  .reconcile-item:last-child { border-right: none; }
+  .reconcile-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .reconcile-value { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 400; }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .discrepancy-ok { color: var(--green); }
+  .discrepancy-warn { color: var(--red); }
+
+  .section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; margin-top: 24px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th { background: #000; color: white; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; text-align: left; padding: 9px 14px; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #FAFAFA; }
+  tbody tr.row-alert { background: #FFF5F5; }
+  tbody tr.row-in td.qty-col { color: var(--green); font-weight: 500; }
+  tbody tr.row-out td.qty-col { color: var(--red); font-weight: 500; }
+  td { padding: 10px 14px; color: var(--text); vertical-align: middle; word-break: break-word; }
+  .mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .qty-col { font-family: 'IBM Plex Mono', monospace; font-weight: 500; text-align: right; }
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 2px; white-space: nowrap; }
+  .b-ship { background: var(--teal-bg); color: var(--teal); }
+  .b-recv { background: var(--green-bg); color: var(--green); }
+  .b-adj { background: var(--purple-bg); color: var(--purple); }
+  .b-transfer { background: var(--gray-bg); color: var(--gray); }
+  .b-return { background: var(--amber-bg); color: var(--amber); }
+  .b-force { background: var(--red-bg); color: var(--red); }
+  .direction { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 2px; }
+  .dir-in { background: var(--green-bg); color: var(--green); }
+  .dir-out { background: var(--red-bg); color: var(--red); }
+  .dir-neutral { background: var(--gray-bg); color: var(--gray); }
+  .alert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; background: var(--red); color: white; text-transform: uppercase; letter-spacing: 0.05em; }
+  .empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
+  .empty-state .big { font-size: 48px; font-family: 'IBM Plex Mono', monospace; margin-bottom: 12px; opacity: 0.15; color: var(--red); }
+  .empty-state p { font-size: 14px; }
+  .error-box { background: var(--red-bg); color: var(--red); border: 1px solid #F1948A; border-radius: 3px; padding: 14px 18px; font-size: 13px; }
+  .result-meta { font-size: 11px; color: var(--muted); margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }
