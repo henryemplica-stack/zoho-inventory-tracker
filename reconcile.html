@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCS Can — Accounting Reconciliation</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F5F5F5; --surface: #FFFFFF; --border: #D6D6D6;
+    --text: #000000; --muted: #4B4B4D;
+    --red: #E30613; --red-bg: #FDECEA;
+    --green: #2D6A4F; --green-bg: #D8F3DC;
+    --blue: #2F4F6F; --blue-bg: #D6E8F5;
+    --amber: #7D4E00; --amber-bg: #FEF3CD;
+    --purple: #4A235A; --purple-bg: #E8DAEF;
+    --gray: #4B4B4D; --gray-bg: #EBEBEB;
+  }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  header { background: #000; padding: 0 40px; display: flex; align-items: center; height: 64px; border-bottom: 3px solid var(--red); position: sticky; top: 0; z-index: 100; }
+  header .logo-wrap { display: flex; align-items: center; gap: 20px; }
+  header .company-name { color: white; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  header .divider { width: 1px; height: 28px; background: rgba(255,255,255,0.2); }
+  header .app-name { color: white; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; opacity: 0.7; }
+  header .tagline { color: rgba(255,255,255,0.4); font-size: 11px; font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.06em; text-transform: uppercase; }
+  header .header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .btn-header { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); padding: 7px 16px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 2px; letter-spacing: 0.04em; transition: all 0.15s; }
+  .btn-header:hover { border-color: var(--red); color: white; }
+  .btn-header.active { background: var(--red); border-color: var(--red); color: white; }
+
+  /* LAYOUT */
+  .container { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
+
+  /* SUMMARY CARDS */
+  .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-bottom: 28px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 14px 16px; border-top: 3px solid var(--border); }
+  .stat.s-alert { border-top-color: var(--red); }
+  .stat.s-ok { border-top-color: var(--green); }
+  .stat.s-warn { border-top-color: var(--amber); }
+  .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 400; line-height: 1; }
+  .c-red { color: var(--red); } .c-green { color: var(--green); } .c-amber { color: var(--amber); }
+
+  /* FILTER BAR */
+  .filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-input { border: 2px solid var(--text); border-radius: 3px; padding: 8px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); background: var(--surface); outline: none; width: 200px; }
+  .search-input:focus { border-color: var(--red); }
+  .filter-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 7px 12px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--muted); transition: all 0.1s; }
+  .filter-btn.active { background: #000; color: white; border-color: #000; }
+  .filter-btn:hover:not(.active) { border-color: var(--text); color: var(--text); }
+  .sort-select { border: 1px solid var(--border); border-radius: 2px; padding: 7px 10px; font-size: 12px; color: var(--text); background: var(--surface); outline: none; cursor: pointer; }
+  .ml-auto { margin-left: auto; }
+  .last-updated { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  /* MAIN TABLE */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #000; color: white; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; text-align: left; padding: 10px 14px; white-space: nowrap; }
+  thead th.r { text-align: right; }
+  tbody tr.data-row { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  tbody tr.data-row:hover { background: #FAFAFA; }
+  tbody tr.data-row.expanded { background: #F0F0F0; }
+  td { padding: 11px 14px; vertical-align: middle; }
+  .mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .r { text-align: right; }
+  .sku-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; }
+  .name-cell { font-size: 12px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .diff-pos { color: var(--green); font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .diff-neg { color: var(--red); font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .diff-zero { color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+  /* CAUSE PILLS */
+  .cause-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 2px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cp-rnb { background: var(--amber-bg); color: var(--amber); }
+  .cp-bnr { background: var(--red-bg); color: var(--red); }
+  .cp-sni { background: var(--purple-bg); color: var(--purple); }
+  .cp-ins { background: var(--blue-bg); color: var(--blue); }
+  .cp-multi { background: var(--gray-bg); color: var(--gray); }
+  .cp-ok { background: var(--green-bg); color: var(--green); }
+
+  /* EXPAND ARROW */
+  .expand-arrow { font-size: 10px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+  .expand-arrow.open { transform: rotate(90deg); }
+
+  /* DETAIL PANEL — inline expanded row */
+  .detail-row { display: none; }
+  .detail-row.open { display: table-row; }
+  .detail-cell { padding: 0 !important; border-bottom: 2px solid var(--red) !important; }
+  .detail-inner { padding: 24px 28px; background: #F9F9F9; }
+
+  /* INVESTIGATION STEPS */
+  .inv-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .inv-title { font-size: 13px; font-weight: 600; }
+  .inv-subtitle { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+  .open-full-btn { background: #000; color: white; border: none; padding: 8px 18px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 2px; letter-spacing: 0.04em; transition: background 0.15s; }
+  .open-full-btn:hover { background: var(--red); }
+
+  .steps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .step-card { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+  .step-card.step-ok { border-left: 4px solid var(--green); }
+  .step-card.step-warn { border-left: 4px solid var(--amber); }
+  .step-card.step-error { border-left: 4px solid var(--red); }
+  .step-card.step-skip { border-left: 4px solid var(--border); opacity: 0.5; }
+  .step-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .step-num { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+  .step-title { font-size: 12px; font-weight: 600; flex: 1; }
+  .step-status { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ss-ok { background: var(--green-bg); color: var(--green); }
+  .ss-warn { background: var(--amber-bg); color: var(--amber); }
+  .ss-error { background: var(--red-bg); color: var(--red); }
+  .ss-skip { background: var(--gray-bg); color: var(--gray); }
+  .step-body { padding: 12px 14px; font-size: 12px; }
+  .step-finding { color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+  .step-finding strong { color: var(--text); }
+  .step-action { background: #000; color: white; border-radius: 2px; padding: 8px 12px; margin-top: 8px; }
+  .step-action-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .step-action-steps { font-size: 11px; color: white; line-height: 1.7; }
+  .step-action-steps span { color: var(--red); font-weight: 600; }
+
+  .doc-list { margin-top: 6px; }
+  .doc-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 2px; margin-bottom: 3px; font-size: 11px; }
+  .doc-item.doc-ok { background: var(--green-bg); }
+  .doc-item.doc-problem { background: var(--red-bg); }
+  .doc-item.doc-neutral { background: var(--gray-bg); }
+  .doc-num { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .doc-meta { color: var(--muted); font-size: 10px; }
+  .doc-qty { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+
+  /* FULL INVESTIGATION PAGE */
+  #investigation-page { display: none; }
+  #investigation-page.active { display: block; }
+  #table-view { display: block; }
+  #table-view.hidden { display: none; }
+
+  .back-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text); padding: 0; margin-bottom: 24px; letter-spacing: 0.02em; }
+  .back-btn:hover { color: var(--red); }
+
+  .inv-page-header { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--red); border-radius: 3px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .inv-page-sku { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 500; line-height: 1; }
+  .inv-page-name { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .inv-page-metrics { display: flex; gap: 32px; }
+  .inv-metric { display: flex; flex-direction: column; gap: 2px; text-align: right; }
+  .inv-metric-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .inv-metric-value { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 400; }
+
+  .full-steps { display: flex; flex-direction: column; gap: 12px; }
+  .full-step-card { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+  .full-step-card.step-ok { border-left: 4px solid var(--green); }
+  .full-step-card.step-warn { border-left: 4px solid var(--amber); }
+  .full-step-card.step-error { border-left: 4px solid var(--red); }
+  .full-step-card.step-skip { border-left: 4px solid var(--border); opacity: 0.6; }
+  .full-step-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .full-step-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; width: 60px; }
+  .full-step-title { font-size: 13px; font-weight: 600; flex: 1; }
+  .full-step-body { padding: 20px 24px; display: none; }
+  .full-step-body.open { display: block; }
+  .finding-box { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 14px 18px; margin-bottom: 16px; }
+  .finding-box-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; }
+  .finding-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .finding-row:last-child { border-bottom: none; }
+  .finding-row-label { color: var(--muted); }
+  .finding-row-value { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .action-block { background: #000; color: white; border-radius: 3px; padding: 16px 20px; }
+  .action-block-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-bottom: 12px; }
+  .action-line { display: flex; gap: 12px; padding: 5px 0; font-size: 13px; line-height: 1.5; }
+  .action-line-num { color: var(--red); font-family: 'IBM Plex Mono', monospace; font-weight: 600; flex-shrink: 0; width: 20px; }
+  .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .doc-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+  .full-doc-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 2px; margin-bottom: 4px; border: 1px solid transparent; }
+  .full-doc-item.fdi-ok { background: var(--green-bg); border-color: #A8D5B5; }
+  .full-doc-item.fdi-problem { background: var(--red-bg); border-color: #F1948A; }
+  .full-doc-item.fdi-neutral { background: var(--gray-bg); border-color: var(--border); }
+  .fdi-left { display: flex; flex-direction: column; gap: 2px; }
+  .fdi-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; }
+  .fdi-meta { font-size: 10px; color: var(--muted); }
+  .fdi-qty { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; }
+  .no-docs-msg { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
+  .ok-message { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--green); font-weight: 500; }
+
+  /* LOADING / EMPTY */
+  .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px; }
+  .loading-bar { width: 240px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .loading-fill { height: 100%; background: var(--red); border-radius: 2px; animation: loadpulse 1.4s ease-in-out infinite; }
+  @keyframes loadpulse { 0%,100%{width:20%} 50%{width:80%} }
+  .loading-text { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.06em; }
+  .empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
+  .empty-big { font-size: 48px; font-family: 'IBM Plex Mono', monospace; margin-bottom: 12px; opacity: 0.15; color: var(--green); }
+  .error-box { background: var(--red-bg); color: var(--red); border: 1px solid #F1948A; border-radius: 3px; padding: 14px 18px; font-size: 13px; margin-bottom: 16px; }
+  .result-meta { font-size: 11px; color: var(--muted); margin-top: 8px; font-family: 'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="company-name">FCS Can Ltd.</div>
+    <div class="divider"></div>
+    <div>
+      <div class="app-name">Accounting Reconciliation</div>
+      <div class="tagline">Physical vs Accounting Stock</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-header" onclick="init()">↺ Refresh Data</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="main-content">
+    <div class="loading-screen">
+      <div class="loading-bar"><div class="loading-fill"></div></div>
+      <div class="loading-text" id="load-msg">Loading data...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = "1j6D_5NN07ovQa62wVvWs_7n6uXjystpVNHoJFsNe32Y"
+
+let allData = []
+let activeFilter = "discrepancy"
+let searchTerm = ""
+let sortBy = "value_diff"
+let openRows = new Set()
+let currentSku = null
+
+// ── DATA LOADING ────────────────────────────────────
+async function readSheet(name) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}&headers=1`
+  const res = await fetch(url)
+  const text = await res.text()
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)
+  if (!match) throw new Error(`Cannot read sheet: ${name}`)
+  const json = JSON.parse(match[1])
+  if (!json.table || !json.table.rows) return []
+  const cols = json.table.cols.map(c => c.label || "")
+  return json.table.rows.map(r => {
+    const obj = {}
+    cols.forEach((col, i) => { obj[col] = r.c[i]?.v ?? "" })
+    return obj
+  })
+}
+
+async function init() {
+  showLoading("Loading physical stock...")
+  try {
+    const [stockRows, billRows, invoiceRows, movRows] = await Promise.all([
+      readSheet("Stock").then(r => { showLoading("Loading bills..."); return r }),
+      readSheet("Bills").then(r => { showLoading("Loading invoices..."); return r }),
+      readSheet("Invoices").then(r => { showLoading("Loading movements..."); return r }),
+      readSheet("Sheet1")
+    ])
+    showLoading("Calculating discrepancies...")
+    allData = buildReconciliation(stockRows, billRows, invoiceRows, movRows)
+    renderTableView()
+  } catch(e) {
+    document.getElementById("main-content").innerHTML =
+      `<div class="error-box"><strong>Error loading data:</strong> ${e.message}</div>`
+  }
+}
+
+function showLoading(msg) {
+  const el = document.getElementById("load-msg")
+  if (el) { el.textContent = msg; return }
+  document.getElementById("main-content").innerHTML = `
+    <div class="loading-screen">
+      <div class="loading-bar"><div class="loading-fill"></div></div>
+      <div class="loading-text" id="load-msg">${msg}</div>
+    </div>`
+}
+
+// ── RECONCILIATION ENGINE ────────────────────────────
+function buildReconciliation(stockRows, billRows, invoiceRows, movRows) {
+  const physBySku = {}, nameBySku = {}, costBySku = {}, whBySku = {}
+  stockRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const qty = float(r.physical_stock)
+    physBySku[sku] = (physBySku[sku] || 0) + qty
+    if (r.item_name) nameBySku[sku] = r.item_name
+    if (r.warehouse_name && qty > 0) whBySku[sku] = r.warehouse_name
+  })
+
+  const billsBySku = {}, invoicesBySku = {}
+  billRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    if (!billsBySku[sku]) billsBySku[sku] = []
+    const cost = float(r.unit_cost)
+    if (cost > 0 && !costBySku[sku]) costBySku[sku] = cost
+    billsBySku[sku].push({
+      number: r.bill_number || "", date: r.date || "",
+      qty: float(r.qty), unit_cost: cost,
+      receive_id: r.receive_id || "", receive_number: r.receive_number || "",
+      po_number: r.po_number || "", status: r.status || "",
+      warehouse_id: r.warehouse_id || ""
+    })
+  })
+  invoiceRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    if (!invoicesBySku[sku]) invoicesBySku[sku] = []
+    invoicesBySku[sku].push({
+      number: r.invoice_number || "", date: r.date || "",
+      qty: float(r.qty), unit_price: float(r.unit_price),
+      shipment_id: r.shipment_id || "", shipment_number: r.shipment_number || "",
+      so_number: r.so_number || "", status: r.status || "",
+      warehouse_id: r.warehouse_id || ""
+    })
+  })
+
+  const receivesBySku = {}, shipmentsBySku = {}, adjBySku = {}
+  movRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const mod = r.module || "", qty = float(r.quantity)
+    const doc = { number: r.doc_number || "", date: r.timestamp || "", qty, status: r.status || "" }
+    if (mod === "Purchase Receive") { if (!receivesBySku[sku]) receivesBySku[sku] = []; receivesBySku[sku].push(doc) }
+    if (mod === "Shipment" || mod === "Force Fulfill") { if (!shipmentsBySku[sku]) shipmentsBySku[sku] = []; shipmentsBySku[sku].push({...doc, force: mod === "Force Fulfill"}) }
+    if (mod === "Inventory Adjustment") { if (!adjBySku[sku]) adjBySku[sku] = []; adjBySku[sku].push(doc) }
+  })
+
+  const allSkus = new Set([...Object.keys(physBySku), ...Object.keys(billsBySku), ...Object.keys(invoicesBySku)])
+
+  return [...allSkus].filter(sku => sku && sku !== "SKU" && sku !== "sku").map(sku => {
+    const physical = physBySku[sku] || 0
+    const bills = billsBySku[sku] || []
+    const invoices = invoicesBySku[sku] || []
+    const receives = receivesBySku[sku] || []
+    const shipments = shipmentsBySku[sku] || []
+    const adjustments = adjBySku[sku] || []
+
+    const billQty = bills.reduce((s,b) => s + b.qty, 0)
+    const invoiceQty = invoices.reduce((s,i) => s + i.qty, 0)
+    const accounting = billQty - invoiceQty
+    const diff = physical - accounting
+    const unitCost = costBySku[sku] || 0
+    const valueDiff = diff * unitCost
+
+    const receivedQty = receives.reduce((s,r) => s + r.qty, 0)
+    const shippedQty = shipments.reduce((s,s2) => s + s2.qty, 0)
+
+    const billsNoReceive = bills.filter(b => !b.receive_id)
+    const invoicesNoShipment = invoices.filter(i => !i.shipment_id)
+    const receivesNoBill = receives.length > 0 && bills.length === 0
+      ? receives
+      : receives.filter(r => !bills.find(b => b.receive_number && b.receive_number.includes(r.number.split("/")[1]?.trim() || "NOMATCH")))
+
+    // Diagnose primary cause for pill
+    let primaryCause = "ok"
+    if (diff !== 0) {
+      if (diff > 0) {
+        if (receivedQty > billQty) primaryCause = "receive-no-bill"
+        else if (invoicesNoShipment.length > 0) primaryCause = "invoice-no-shipment"
+        else primaryCause = "multiple"
+      } else {
+        if (billsNoReceive.length > 0) primaryCause = "bill-no-receive"
+        else if (shippedQty > invoiceQty) primaryCause = "shipment-no-invoice"
+        else primaryCause = "multiple"
+      }
+    }
+
+    return {
+      sku, name: nameBySku[sku] || "", warehouse: whBySku[sku] || "",
+      physical, accounting, diff, unitCost, valueDiff,
+      bills, invoices, receives, shipments, adjustments,
+      billQty, invoiceQty, receivedQty, shippedQty,
+      billsNoReceive, invoicesNoShipment, receivesNoBill,
+      primaryCause
+    }
+  })
+}
+
+// ── INVESTIGATION ENGINE (10 STEPS) ─────────────────
+function runInvestigation(item) {
+  const steps = []
+  const diff = item.diff
+  const absDiff = Math.abs(diff)
+
+  // STEP 1 — SKU + Warehouse
+  steps.push({
+    num: "01", title: "Item by SKU + Warehouse",
+    status: "info",
+    finding: `Physical stock: <strong>${fmt(item.physical)}</strong> units in <strong>${item.warehouse || "unknown warehouse"}</strong>. Accounting stock: <strong>${fmt(item.accounting)}</strong> units. ${diff === 0 ? "No discrepancy detected." : `Discrepancy: <strong>${diff > 0 ? "+" : ""}${fmt(diff)}</strong> units.`}`,
+    action: null
+  })
+
+  // STEP 2 — Compare Accounting vs Physical
+  const s2status = diff === 0 ? "ok" : diff > 0 ? "warn" : "error"
+  steps.push({
+    num: "02", title: "Accounting vs Physical Comparison",
+    status: s2status,
+    finding: diff === 0
+      ? "Accounting Stock equals Physical Stock. Item is reconciled."
+      : diff > 0
+        ? `Physical Stock is <strong>+${fmt(absDiff)}</strong> units higher than Accounting. Physical movements are ahead of accounting records. Likely missing Bills or Invoices created without Shipments.`
+        : `Accounting Stock is <strong>+${fmt(absDiff)}</strong> units higher than Physical. Accounting records are ahead of physical movements. Likely Bills created without Receives or missing Shipments.`,
+    action: null
+  })
+
+  if (diff === 0) {
+    steps.push({ num: "03–10", title: "Remaining steps", status: "skip", finding: "No discrepancy — no further investigation needed.", action: null })
+    return steps
+  }
+
+  // STEP 3 — Bills without Receives (Accounting > Physical)
+  const s3status = item.billsNoReceive.length > 0 ? "error" : "ok"
+  let s3finding = "", s3action = null
+  if (item.billsNoReceive.length > 0) {
+    s3finding = `<strong>${item.billsNoReceive.length} Bill(s)</strong> found with no linked Purchase Receive. These Bills increased Accounting Stock without a corresponding physical arrival.`
+    s3action = {
+      label: "Action — Bills without Purchase Receives",
+      steps: item.billsNoReceive.slice(0,5).map((b,i) =>
+        `${i+1}. Open Bill <strong>${b.number || "—"}</strong> in Zoho Inventory → Verify if goods were physically received → If yes: create Purchase Receive from PO <strong>${b.po_number || "—"}</strong> → If no: void or delete the Bill`
+      ).join("<br>")
+    }
+  } else {
+    s3finding = "All Bills have a linked Purchase Receive. No issue found here."
+  }
+  steps.push({ num: "03", title: "Bills without Purchase Receives", status: s3status, finding: s3finding, action: s3action, docs: item.billsNoReceive, docType: "bill" })
+
+  // STEP 4 — Invoices without Shipments (Physical < Accounting)
+  const s4status = item.invoicesNoShipment.length > 0 ? "error" : "ok"
+  let s4finding = "", s4action = null
+  if (item.invoicesNoShipment.length > 0) {
+    s4finding = `<strong>${item.invoicesNoShipment.length} Invoice(s)</strong> found with no linked Shipment. These Invoices reduced Accounting Stock without a corresponding physical outbound.`
+    s4action = {
+      label: "Action — Invoices without Shipments",
+      steps: item.invoicesNoShipment.slice(0,5).map((inv,i) =>
+        `${i+1}. Open Invoice <strong>${inv.number || "—"}</strong> in Zoho Inventory → Check linked SO <strong>${inv.so_number || "—"}</strong> → If goods shipped: create Package/Shipment from the SO → If not shipped: void the Invoice`
+      ).join("<br>")
+    }
+  } else {
+    s4finding = "All Invoices have a linked Shipment. No issue found here."
+  }
+  steps.push({ num: "04", title: "Invoices without Shipments", status: s4status, finding: s4finding, action: s4action, docs: item.invoicesNoShipment, docType: "invoice" })
+
+  // STEP 5 — Receives without Bills (Physical > Accounting)
+  const receiveCount = item.receives.length
+  const billCount = item.bills.length
+  const s5status = item.diff > 0 && receiveCount > billCount ? "error" : receiveCount > 0 && billCount === 0 ? "error" : "ok"
+  let s5finding = "", s5action = null
+  if (receiveCount > 0 && billCount === 0) {
+    s5finding = `<strong>${receiveCount} Purchase Receive(s)</strong> found with no Bill created. Goods arrived physically but were never invoiced in accounting.`
+    s5action = {
+      label: "Action — Purchase Receives without Bills",
+      steps: item.receives.slice(0,5).map((r,i) =>
+        `${i+1}. Open Purchase Order from Receive <strong>${r.number || "—"}</strong> in Zoho Inventory → Click "Create Bill" → Confirm quantities match what was received → Set status to Open`
+      ).join("<br>")
+    }
+  } else if (receiveCount > billCount) {
+    s5finding = `<strong>${receiveCount} Receive(s)</strong> vs <strong>${billCount} Bill(s)</strong>. Some receives may not have a corresponding Bill.`
+    s5action = { label: "Action", steps: "Cross-check each Purchase Receive against Bills. For any unmatched Receive, create a Bill from the corresponding PO in Zoho Inventory." }
+  } else {
+    s5finding = `${receiveCount} Receive(s) and ${billCount} Bill(s) found. Volume appears balanced.`
+  }
+  steps.push({ num: "05", title: "Purchase Receives without Bills", status: s5status, finding: s5finding, action: s5action, docs: item.receives, docType: "receive" })
+
+  // STEP 6 — Shipments without Invoices (Physical out > Accounting out)
+  const shipCount = item.shipments.length
+  const invCount = item.invoices.length
+  const s6status = item.diff < 0 && shipCount > invCount ? "error" : shipCount > 0 && invCount === 0 ? "error" : "ok"
+  let s6finding = "", s6action = null
+  if (shipCount > 0 && invCount === 0) {
+    s6finding = `<strong>${shipCount} Shipment(s)</strong> found with no Invoice created. Goods left physically but were never invoiced.`
+    s6action = {
+      label: "Action — Shipments without Invoices",
+      steps: item.shipments.slice(0,5).map((s,i) =>
+        `${i+1}. Open Sales Order linked to Shipment <strong>${s.number || "—"}</strong> in Zoho Inventory → Click "Create Invoice" → Confirm shipped quantities → Set status to Sent`
+      ).join("<br>")
+    }
+  } else if (shipCount > invCount) {
+    s6finding = `<strong>${shipCount} Shipment(s)</strong> vs <strong>${invCount} Invoice(s)</strong>. Some shipments may not have a corresponding Invoice.`
+    s6action = { label: "Action", steps: "Cross-check each Shipment against Invoices. For any unmatched Shipment, create an Invoice from the corresponding SO in Zoho Inventory." }
+  } else {
+    s6finding = `${shipCount} Shipment(s) and ${invCount} Invoice(s) found. Volume appears balanced.`
+  }
+  steps.push({ num: "06", title: "Shipments without Invoices", status: s6status, finding: s6finding, action: s6action, docs: item.shipments, docType: "shipment" })
+
+  // STEP 7 — Purchase quantity cross-check
+  const receivedQty = item.receivedQty
+  const billedQty = item.billQty
+  const purchaseDiff = receivedQty - billedQty
+  const s7status = Math.abs(purchaseDiff) > 0.01 ? (purchaseDiff > 0 ? "warn" : "error") : "ok"
+  let s7finding = "", s7action = null
+  if (Math.abs(purchaseDiff) < 0.01) {
+    s7finding = `Received qty <strong>${fmt(receivedQty)}</strong> matches Billed qty <strong>${fmt(billedQty)}</strong>. Purchase quantities are balanced.`
+  } else if (purchaseDiff > 0) {
+    s7finding = `Received <strong>${fmt(receivedQty)}</strong> units but only Billed <strong>${fmt(billedQty)}</strong> units. <strong>Missing Bill for ${fmt(purchaseDiff)} units.</strong>`
+    s7action = { label: "Action — Missing Bill Quantity", steps: `Open the relevant PO in Zoho Inventory → Create Bill for the remaining <strong>${fmt(purchaseDiff)}</strong> units → Ensure the Bill date matches when goods were received` }
+  } else {
+    s7finding = `Billed <strong>${fmt(billedQty)}</strong> units but only Received <strong>${fmt(receivedQty)}</strong> units. <strong>Bill was created before goods arrived (${fmt(Math.abs(purchaseDiff))} units excess).</strong>`
+    s7action = { label: "Action — Bill Created Too Early", steps: `Find the Bill(s) with qty exceeding received amounts → Edit the Bill to match actual received qty → Or create the missing Purchase Receive if goods did arrive` }
+  }
+  steps.push({ num: "07", title: "Purchase Quantity Cross-Check (Received vs Billed)", status: s7status, finding: s7finding, action: s7action })
+
+  // STEP 8 — Sales quantity cross-check
+  const shippedQty = item.shippedQty
+  const invoicedQty = item.invoiceQty
+  const salesDiff = shippedQty - invoicedQty
+  const s8status = Math.abs(salesDiff) > 0.01 ? (salesDiff > 0 ? "warn" : "error") : "ok"
+  let s8finding = "", s8action = null
+  if (Math.abs(salesDiff) < 0.01) {
+    s8finding = `Shipped qty <strong>${fmt(shippedQty)}</strong> matches Invoiced qty <strong>${fmt(invoicedQty)}</strong>. Sales quantities are balanced.`
+  } else if (salesDiff > 0) {
+    s8finding = `Shipped <strong>${fmt(shippedQty)}</strong> units but only Invoiced <strong>${fmt(invoicedQty)}</strong> units. <strong>Missing Invoice for ${fmt(salesDiff)} units.</strong>`
+    s8action = { label: "Action — Missing Invoice Quantity", steps: `Open the relevant SO in Zoho Inventory → Create Invoice for the remaining <strong>${fmt(salesDiff)}</strong> units → Ensure the Invoice date matches the shipment date` }
+  } else {
+    s8finding = `Invoiced <strong>${fmt(invoicedQty)}</strong> units but only Shipped <strong>${fmt(shippedQty)}</strong> units. <strong>Invoice was created before shipment (${fmt(Math.abs(salesDiff))} units excess).</strong>`
+    s8action = { label: "Action — Invoice Created Too Early", steps: `Find the Invoice(s) with qty exceeding shipped amounts → Create the missing Shipment/Package if goods did go out → Or adjust the Invoice qty to match what was actually shipped` }
+  }
+  steps.push({ num: "08", title: "Sales Quantity Cross-Check (Shipped vs Invoiced)", status: s8status, finding: s8finding, action: s8action })
+
+  // STEP 9 — Inventory Adjustments
+  const adjCount = item.adjustments.length
+  const s9status = adjCount > 0 ? "warn" : "ok"
+  steps.push({
+    num: "09", title: "Inventory Adjustments",
+    status: s9status,
+    finding: adjCount > 0
+      ? `<strong>${adjCount} Inventory Adjustment(s)</strong> found for this SKU. These may have altered physical quantity without a corresponding accounting entry. Review each for correct date, warehouse, reason, and account used.`
+      : "No Inventory Adjustments found for this SKU.",
+    action: adjCount > 0 ? {
+      label: "Action — Review Adjustments",
+      steps: `In Zoho Inventory → Inventory → Inventory Adjustments → Filter by SKU <strong>${item.sku}</strong> → For each adjustment verify: correct warehouse, correct date, correct account (should post to Inventory Asset, not P&L unless it's a write-off)`
+    } : null,
+    docs: item.adjustments, docType: "adjustment"
+  })
+
+  // STEP 10 — Opening Balance
+  const s10status = "info"
+  steps.push({
+    num: "10", title: "Opening Balance Check",
+    status: s10status,
+    finding: `If the discrepancy has existed since the beginning of this item's history, it may be caused by an incorrect opening balance, a wrong initial cost, or the initial stock loaded into the wrong warehouse. This requires checking the item's first transaction date and the original opening balance entry.`,
+    action: {
+      label: "Action — Verify Opening Balance",
+      steps: `In Zoho Inventory → Items → Open SKU <strong>${item.sku}</strong> → Check "Opening Stock" and "Opening Stock Rate" → Cross-reference with your physical count on the migration date → If wrong: contact Zoho support or your accountant to correct via a Value Adjustment or opening balance edit`
+    }
+  })
+
+  return steps
+}
+
+// ── RENDER TABLE VIEW ────────────────────────────────
+function renderTableView() {
+  const filtered = getFiltered()
+  const total = allData.length
+  const withDiff = allData.filter(r => r.diff !== 0).length
+  const ok = total - withDiff
+  const physGt = allData.filter(r => r.diff > 0).length
+  const accGt = allData.filter(r => r.diff < 0).length
+  const totalVal = allData.reduce((s,r) => s + Math.abs(r.valueDiff), 0)
+  const now = new Date().toLocaleString("en-CA", { timeZone: "America/Vancouver" })
+
+  const summary = `<div class="summary-grid">
+    <div class="stat ${withDiff > 0 ? 's-alert' : 's-ok'}">
+      <div class="stat-label">SKUs with Discrepancy</div>
+      <div class="stat-value ${withDiff > 0 ? 'c-red' : 'c-green'}">${withDiff}</div>
+    </div>
+    <div class="stat s-ok">
+      <div class="stat-label">Reconciled SKUs</div>
+      <div class="stat-value c-green">${ok}</div>
+    </div>
+    <div class="stat ${physGt > 0 ? 's-warn' : ''}">
+      <div class="stat-label">Physical &gt; Accounting</div>
+      <div class="stat-value ${physGt > 0 ? 'c-amber' : ''}">${physGt}</div>
+    </div>
+    <div class="stat ${accGt > 0 ? 's-alert' : ''}">
+      <div class="stat-label">Accounting &gt; Physical</div>
+      <div class="stat-value ${accGt > 0 ? 'c-red' : ''}">${accGt}</div>
+    </div>
+    <div class="stat ${totalVal > 0 ? 's-alert' : 's-ok'}">
+      <div class="stat-label">Total Value at Risk</div>
+      <div class="stat-value ${totalVal > 0 ? 'c-red' : 'c-green'}" style="font-size:17px">$${totalVal.toLocaleString("en-CA",{maximumFractionDigits:0})}</div>
+    </div>
+  </div>`
+
+  const filters = `<div class="filter-bar">
+    <input class="search-input" type="text" placeholder="Search SKU or name..." value="${searchTerm}" oninput="onSearch(this.value)" />
+    <span class="filter-label">Show:</span>
+    <button class="filter-btn ${activeFilter==='all'?'active':''}" onclick="setFilter('all')">All (${total})</button>
+    <button class="filter-btn ${activeFilter==='discrepancy'?'active':''}" onclick="setFilter('discrepancy')">Issues (${withDiff})</button>
+    <button class="filter-btn ${activeFilter==='physical_gt'?'active':''}" onclick="setFilter('physical_gt')">Physical &gt; Acc (${physGt})</button>
+    <button class="filter-btn ${activeFilter==='accounting_gt'?'active':''}" onclick="setFilter('accounting_gt')">Acc &gt; Physical (${accGt})</button>
+    <button class="filter-btn ${activeFilter==='ok'?'active':''}" onclick="setFilter('ok')">OK (${ok})</button>
+    <span class="filter-label ml-auto">Sort:</span>
+    <select class="sort-select" onchange="setSort(this.value)">
+      <option value="value_diff" ${sortBy==='value_diff'?'selected':''}>Value Impact</option>
+      <option value="qty_diff" ${sortBy==='qty_diff'?'selected':''}>Qty Difference</option>
+      <option value="sku" ${sortBy==='sku'?'selected':''}>SKU</option>
+      <option value="physical" ${sortBy==='physical'?'selected':''}>Physical Stock</option>
+    </select>
+    <span class="last-updated">Updated: ${now}</span>
+  </div>`
+
+  if (!filtered.length) {
+    document.getElementById("main-content").innerHTML = summary + filters +
+      `<div class="empty-state"><div class="empty-big">✓</div><p>No items match the current filter.</p></div>`
+    return
+  }
+
+  const rows = filtered.map((item, idx) => {
+    const cp = causeInfo(item.primaryCause)
+    const diffClass = item.diff > 0 ? "diff-pos" : item.diff < 0 ? "diff-neg" : "diff-zero"
+    const diffSign = item.diff > 0 ? "+" : ""
+    const valClass = item.valueDiff > 0 ? "c-green" : item.valueDiff < 0 ? "c-red" : ""
+    const isOpen = openRows.has(idx)
+
+    return `<tr class="data-row ${isOpen ? 'expanded' : ''}" onclick="toggleRow(${idx})">
+      <td style="width:30px"><span class="expand-arrow ${isOpen ? 'open' : ''}">▶</span></td>
+      <td class="sku-cell" style="width:120px">${item.sku}</td>
+      <td class="name-cell" style="width:180px" title="${item.name}">${item.name || "—"}</td>
+      <td class="mono r" style="width:100px">${fmt(item.physical)}</td>
+      <td class="mono r" style="width:100px">${fmt(item.accounting)}</td>
+      <td class="r" style="width:100px"><span class="${diffClass}">${diffSign}${fmt(item.diff)}</span></td>
+      <td class="r" style="width:120px"><span class="mono ${valClass}">${item.unitCost > 0 ? fmtVal(item.valueDiff) : "—"}</span></td>
+      <td style="width:190px"><span class="cause-pill ${cp.cls}">${cp.label}</span></td>
+      <td style="width:130px"><button class="open-full-btn" style="font-size:11px;padding:5px 12px" onclick="event.stopPropagation();openInvestigation('${item.sku}')">Full Investigation →</button></td>
+    </tr>
+    <tr class="detail-row ${isOpen ? 'open' : ''}" id="detail-${idx}">
+      <td class="detail-cell" colspan="9">
+        <div class="detail-inner">${buildInlineDetail(item)}</div>
+      </td>
+    </tr>`
+  }).join("")
+
+  document.getElementById("main-content").innerHTML = summary + filters + `
+    <div id="table-view">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:30px"></th>
+            <th style="width:120px">SKU</th>
+            <th style="width:180px">Item Name</th>
+            <th class="r" style="width:100px">Physical</th>
+            <th class="r" style="width:100px">Accounting</th>
+            <th class="r" style="width:100px">Difference</th>
+            <th class="r" style="width:120px">Value Impact</th>
+            <th style="width:190px">Primary Cause</th>
+            <th style="width:130px"></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p class="result-meta">${filtered.length} of ${total} SKU(s) shown — click any row for quick diagnosis, or "Full Investigation" for the complete 10-step audit</p>
+    </div>
+    <div id="investigation-page"></div>`
+}
+
+function buildInlineDetail(item) {
+  const steps = runInvestigation(item)
+  const problems = steps.filter(s => s.status === "error" || s.status === "warn")
+  if (item.diff === 0) return `<div class="ok-message">✓ This SKU is fully reconciled. No action needed.</div>`
+  if (!problems.length) return `<div style="font-size:12px;color:var(--muted)">No specific document-level issues detected. Check Step 9 (Adjustments) and Step 10 (Opening Balance) in the Full Investigation.</div>`
+
+  return `<div class="steps-grid">${problems.map(s => buildStepCard(s)).join("")}</div>`
+}
+
+function buildStepCard(s) {
+  const cls = s.status === "ok" ? "step-ok" : s.status === "error" ? "step-error" : s.status === "warn" ? "step-warn" : "step-skip"
+  const scls = s.status === "ok" ? "ss-ok" : s.status === "error" ? "ss-error" : s.status === "warn" ? "ss-warn" : "ss-skip"
+  const slabel = s.status === "ok" ? "OK" : s.status === "error" ? "Issue Found" : s.status === "warn" ? "Warning" : "Skip"
+  return `<div class="step-card ${cls}">
+    <div class="step-head">
+      <span class="step-num">Step ${s.num}</span>
+      <span class="step-title">${s.title}</span>
+      <span class="step-status ${scls}">${slabel}</span>
+    </div>
+    <div class="step-body">
+      <div class="step-finding">${s.finding}</div>
+      ${s.action ? `<div class="step-action"><div class="step-action-label">Recommended Action</div><div class="step-action-steps">${s.action.steps}</div></div>` : ""}
+    </div>
+  </div>`
+}
+
+// ── FULL INVESTIGATION PAGE ──────────────────────────
+function openInvestigation(sku) {
+  const item = allData.find(r => r.sku === sku)
+  if (!item) return
+  currentSku = sku
+
+  const steps = runInvestigation(item)
+  const diffClass = item.diff > 0 ? "c-green" : item.diff < 0 ? "c-red" : ""
+  const diffSign = item.diff > 0 ? "+" : ""
+
+  const stepsHtml = steps.map((s, idx) => {
+    const cls = s.status === "ok" ? "step-ok" : s.status === "error" ? "step-error" : s.status === "warn" ? "step-warn" : "step-skip"
+    const scls = s.status === "ok" ? "ss-ok" : s.status === "error" ? "ss-error" : s.status === "warn" ? "ss-warn" : "ss-skip"
+    const slabel = s.status === "ok" ? "✓ OK" : s.status === "error" ? "⚠ Issue Found" : s.status === "warn" ? "⚠ Warning" : "— Skipped"
+    const isOpen = s.status === "error" || s.status === "warn"
+
+    let docsHtml = ""
+    if (s.docs && s.docs.length > 0) {
+      const docsCapped = s.docs.slice(0,8)
+      docsHtml = `<div style="margin-bottom:16px">
+        <div class="doc-section-title">${s.docType === "bill" ? "Bills" : s.docType === "invoice" ? "Invoices" : s.docType === "receive" ? "Purchase Receives" : s.docType === "shipment" ? "Shipments" : "Adjustments"}</div>
+        ${docsCapped.map(d => {
+          const isProblem = (s.docType === "bill" && !d.receive_id) || (s.docType === "invoice" && !d.shipment_id)
+          const cls2 = isProblem ? "fdi-problem" : "fdi-neutral"
+          const linked = s.docType === "bill"
+            ? (d.receive_id ? `Receive: ${d.receive_number || d.receive_id}` : `<span style="color:var(--red);font-weight:600">No Receive linked</span>`)
+            : s.docType === "invoice"
+            ? (d.shipment_id ? `Shipment: ${d.shipment_number || d.shipment_id}` : `<span style="color:var(--red);font-weight:600">No Shipment linked</span>`)
+            : ""
+          return `<div class="full-doc-item ${cls2}">
+            <div class="fdi-left">
+              <div class="fdi-num">${d.number || "No number"}</div>
+              <div class="fdi-meta">${fmtDate(d.date)}${d.status ? " · " + d.status : ""}${linked ? " · " + linked : ""}</div>
+            </div>
+            <div class="fdi-qty">${d.qty !== undefined ? fmt(d.qty) + " un" : ""}</div>
+          </div>`
+        }).join("")}
+        ${s.docs.length > 8 ? `<div style="font-size:11px;color:var(--muted);padding:4px 0">+ ${s.docs.length - 8} more documents</div>` : ""}
+      </div>`
+    }
+
+    return `<div class="full-step-card ${cls}" id="fstep-${idx}">
+      <div class="full-step-head" onclick="toggleFullStep(${idx})">
+        <span class="full-step-num">Step ${s.num}</span>
+        <span class="full-step-title">${s.title}</span>
+        <span class="step-status ${scls}" style="margin-left:auto">${slabel}</span>
+        <span class="expand-arrow ${isOpen ? 'open' : ''}" style="margin-left:12px" id="farrow-${idx}">▶</span>
+      </div>
+      <div class="full-step-body ${isOpen ? 'open' : ''}" id="fbody-${idx}">
+        <div class="finding-box">
+          <div class="finding-box-title">Finding</div>
+          <div style="font-size:13px;line-height:1.6">${s.finding}</div>
+        </div>
+        ${docsHtml}
+        ${s.action ? `<div class="action-block">
+          <div class="action-block-title">${s.action.label}</div>
+          <div style="font-size:13px;line-height:1.8;color:white">${s.action.steps}</div>
+        </div>` : ""}
+      </div>
+    </div>`
+  }).join("")
+
+  const html = `
+    <button class="back-btn" onclick="closeInvestigation()">← Back to All SKUs</button>
+    <div class="inv-page-header">
+      <div>
+        <div class="inv-page-sku">${item.sku}</div>
+        <div class="inv-page-name">${item.name || "—"} ${item.warehouse ? "· " + item.warehouse : ""}</div>
+      </div>
+      <div class="inv-page-metrics">
+        <div class="inv-metric">
+          <div class="inv-metric-label">Physical Stock</div>
+          <div class="inv-metric-value">${fmt(item.physical)}</div>
+        </div>
+        <div class="inv-metric">
+          <div class="inv-metric-label">Accounting Stock</div>
+          <div class="inv-metric-value">${fmt(item.accounting)}</div>
+        </div>
+        <div class="inv-metric">
+          <div class="inv-metric-label">Difference</div>
+          <div class="inv-metric-value ${diffClass}">${diffSign}${fmt(item.diff)}</div>
+        </div>
+        <div class="inv-metric">
+          <div class="inv-metric-label">Value at Risk</div>
+          <div class="inv-metric-value ${diffClass}" style="font-size:17px">${item.unitCost > 0 ? fmtVal(item.valueDiff) : "—"}</div>
+        </div>
+      </div>
+    </div>
+    <div class="full-steps">${stepsHtml}</div>`
+
+  const invPage = document.getElementById("investigation-page")
+  const tableView = document.getElementById("table-view")
+  if (invPage && tableView) {
+    tableView.classList.add("hidden")
+    invPage.innerHTML = html
+    invPage.classList.add("active")
+    window.scrollTo(0, 0)
+  }
+}
+
+function closeInvestigation() {
+  const invPage = document.getElementById("investigation-page")
+  const tableView = document.getElementById("table-view")
+  if (invPage && tableView) {
+    invPage.classList.remove("active")
+    invPage.innerHTML = ""
+    tableView.classList.remove("hidden")
+  }
+  currentSku = null
+}
+
+function toggleFullStep(idx) {
+  const body = document.getElementById(`fbody-${idx}`)
+  const arrow = document.getElementById(`farrow-${idx}`)
+  if (!body) return
+  body.classList.toggle("open")
+  if (arrow) arrow.classList.toggle("open")
+}
+
+// ── HELPERS ──────────────────────────────────────────
+function norm(v) { return String(v || "").trim().toUpperCase() }
+function float(v) { return parseFloat(v) || 0 }
+function fmt(n) { return parseFloat(n).toLocaleString("en-CA", { maximumFractionDigits: 2 }) }
+function fmtVal(n) {
+  if (n === 0) return "$0"
+  const s = n > 0 ? "+" : "-"
+  return `${s}$${Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+function fmtDate(ts) {
+  if (!ts) return "—"
+  try { return new Date(ts).toLocaleDateString("en-CA") } catch { return String(ts) }
+}
+
+function causeInfo(cause) {
+  const map = {
+    "receive-no-bill":     { cls: "cp-rnb", label: "Receive → No Bill" },
+    "bill-no-receive":     { cls: "cp-bnr", label: "Bill → No Receive" },
+    "shipment-no-invoice": { cls: "cp-sni", label: "Shipment → No Invoice" },
+    "invoice-no-shipment": { cls: "cp-ins", label: "Invoice → No Shipment" },
+    "multiple":            { cls: "cp-multi", label: "Multiple Causes" },
+    "ok":                  { cls: "cp-ok", label: "Reconciled" },
+  }
+  return map[cause] || map["multiple"]
+}
+
+function getFiltered() {
+  let data = [...allData]
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase()
+    data = data.filter(r => r.sku.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+  }
+  if (activeFilter === "discrepancy") data = data.filter(r => r.diff !== 0)
+  if (activeFilter === "physical_gt") data = data.filter(r => r.diff > 0)
+  if (activeFilter === "accounting_gt") data = data.filter(r => r.diff < 0)
+  if (activeFilter === "ok") data = data.filter(r => r.diff === 0)
+  if (sortBy === "value_diff") data.sort((a,b) => Math.abs(b.valueDiff) - Math.abs(a.valueDiff))
+  if (sortBy === "qty_diff") data.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff))
+  if (sortBy === "sku") data.sort((a,b) => a.sku.localeCompare(b.sku))
+  if (sortBy === "physical") data.sort((a,b) => b.physical - a.physical)
+  return data
+}
+
+function toggleRow(idx) {
+  if (openRows.has(idx)) openRows.delete(idx)
+  else openRows.add(idx)
+  renderTableView()
+}
+
+function setFilter(f) { activeFilter = f; openRows.clear(); renderTableView() }
+function setSort(s) { sortBy = s; openRows.clear(); renderTableView() }
+function onSearch(v) { searchTerm = v; openRows.clear(); renderTableView() }
+
+init()
+</script>
+</body>
+</html>
