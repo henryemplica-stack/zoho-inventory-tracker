@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClosedLoop — FCS Can Ltd.</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0A0A0A;
+  --surface: #111111;
+  --surface2: #1A1A1A;
+  --border: #2A2A2A;
+  --border2: #333;
+  --text: #F0F0F0;
+  --muted: #888;
+  --dim: #555;
+  --red: #E30613;
+  --red-dim: rgba(227,6,19,0.15);
+  --red-border: rgba(227,6,19,0.3);
+  --green: #2ECC71;
+  --green-dim: rgba(46,204,113,0.12);
+  --green-border: rgba(46,204,113,0.3);
+  --amber: #F0A500;
+  --amber-dim: rgba(240,165,0,0.12);
+  --amber-border: rgba(240,165,0,0.3);
+  --blue: #4A9EDF;
+  --blue-dim: rgba(74,158,223,0.12);
+  --purple: #9B59B6;
+  --critical: #FF4444;
+  --critical-dim: rgba(255,68,68,0.12);
+}
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* HEADER */
+header {
+  background: #000;
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  border: 2px solid var(--red);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.logo-mark::after {
+  content: '';
+  width: 8px; height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+}
+.logo-name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: white; }
+.logo-sub { font-size: 10px; color: var(--dim); font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.hdr-div { width: 1px; height: 24px; background: var(--border2); }
+.fiscal-badge {
+  background: var(--red-dim);
+  border: 1px solid var(--red-border);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  padding: 3px 10px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.hdr-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'IBM Plex Sans', sans-serif;
+  cursor: pointer;
+  border-radius: 2px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+.hdr-btn:hover { border-color: var(--red); color: white; }
+.hdr-btn.syncing { opacity: 0.4; pointer-events: none; }
+#sync-label { font-size: 10px; color: var(--dim); font-family: 'IBM Plex Mono', monospace; }
+
+/* LAYOUT */
+.container { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+/* LOADING */
+.loading-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; }
+.loading-track { width: 200px; height: 2px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+.loading-fill { height: 100%; background: var(--red); border-radius: 2px; animation: pulse-load 1.6s ease-in-out infinite; }
+@keyframes pulse-load { 0%,100%{width:15%} 50%{width:85%} }
+.loading-msg { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--dim); letter-spacing: 0.06em; }
+.error-box { background: var(--red-dim); border: 1px solid var(--red-border); border-left: 3px solid var(--red); color: var(--red); padding: 16px 20px; border-radius: 3px; font-size: 13px; }
+
+/* SUMMARY BAR */
+.summary-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.sbar-item {
+  background: var(--surface);
+  padding: 14px 18px;
+}
+.sbar-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 6px; }
+.sbar-val { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 500; line-height: 1; }
+.sbar-val.red { color: var(--red); }
+.sbar-val.green { color: var(--green); }
+.sbar-val.amber { color: var(--amber); }
+.sbar-val.critical { color: var(--critical); }
+.sbar-sub { font-size: 10px; color: var(--dim); margin-top: 4px; font-family: 'IBM Plex Mono', monospace; }
+
+/* FILTER BAR */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.search-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 8px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  border-radius: 2px;
+  outline: none;
+  width: 180px;
+  transition: border-color 0.15s;
+}
+.search-box:focus { border-color: var(--red); }
+.search-box::placeholder { color: var(--dim); }
+.filter-pill {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 7px 13px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.12s;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+.filter-pill.active { background: var(--red); border-color: var(--red); color: white; }
+.filter-pill:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+.ml-auto { margin-left: auto; }
+.sort-sel {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-size: 11px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* CUTOFF NOTICE */
+.cutoff-bar {
+  background: var(--amber-dim);
+  border: 1px solid var(--amber-border);
+  border-left: 3px solid var(--amber);
+  border-radius: 3px;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+}
+.cutoff-bar strong { font-weight: 700; }
+
+/* ITEM LIST */
+.item-list { display: flex; flex-direction: column; gap: 2px; }
+
+/* ITEM CARD */
+.item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  transition: border-color 0.12s;
+}
+.item-card:hover { border-color: var(--border2); }
+.item-card.critical-card { border-left: 3px solid var(--critical); }
+
+.item-head {
+  display: grid;
+  grid-template-columns: 28px 160px 1fr 90px 90px 90px 90px 140px 120px;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  gap: 0;
+  transition: background 0.1s;
+}
+.item-head:hover { background: var(--surface2); }
+.item-head.open { background: var(--surface2); }
+
+.ih-arrow { color: var(--dim); font-size: 9px; transition: transform 0.2s; }
+.ih-arrow.open { transform: rotate(90deg); }
+.sku-block {}
+.sku-txt { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text); }
+.sku-name { font-size: 10px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.ih-name { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+.ih-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; padding-right: 14px; }
+.ih-num.pos { color: var(--green); }
+.ih-num.neg { color: var(--red); }
+.ih-num.zero { color: var(--dim); }
+.ih-num.critical { color: var(--critical); font-weight: 700; }
+.cause-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ct-rnb { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-border); }
+.ct-sni { background: var(--blue-dim); color: var(--blue); }
+.ct-bnr { background: var(--red-dim); color: var(--red); border: 1px solid var(--red-border); }
+.ct-ins { background: rgba(155,89,182,0.12); color: var(--purple); }
+.ct-draft { background: var(--amber-dim); color: var(--amber); }
+.ct-multi { background: rgba(255,255,255,0.06); color: var(--muted); }
+.ct-critical { background: var(--critical-dim); color: var(--critical); border: 1px solid rgba(255,68,68,0.3); }
+.ct-ok { background: var(--green-dim); color: var(--green); }
+.ct-noval { background: rgba(255,255,255,0.06); color: var(--dim); }
+
+/* ACTION BADGE on header */
+.action-count-badge {
+  background: var(--red);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* EXPANDED BODY */
+.item-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border); }
+.item-body.open { display: block; }
+
+/* SECTION inside body */
+.section { margin-top: 14px; }
+.section-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* NUMBERS ROW */
+.nums-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.num-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 14px;
+}
+.num-box-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin-bottom: 5px; }
+.num-box-val { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; }
+.num-box-sub { font-size: 10px; color: var(--dim); margin-top: 3px; }
+.nb-physical { border-top: 2px solid var(--green); }
+.nb-accounting { border-top: 2px solid var(--blue); }
+.nb-diff { border-top: 2px solid var(--red); }
+.nb-diff.ok { border-top-color: var(--green); }
+
+/* CRITICAL ALERT */
+.critical-alert {
+  background: var(--critical-dim);
+  border: 1px solid rgba(255,68,68,0.3);
+  border-left: 3px solid var(--critical);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--critical);
+  line-height: 1.6;
+}
+
+/* ACTIONS BLOCK — the star of the show */
+.actions-block {
+  background: #000;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.actions-header {
+  background: var(--red);
+  padding: 10px 16px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.actions-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+
+.action-step {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  transition: background 0.1s;
+}
+.action-step.purchase { background: var(--green-dim); border-color: var(--green-border); }
+.action-step.sale { background: var(--red-dim); border-color: var(--red-border); }
+.action-step.draft { background: var(--amber-dim); border-color: var(--amber-border); }
+.action-step.warning { background: rgba(155,89,182,0.1); border-color: rgba(155,89,182,0.25); }
+.action-step.manual { background: rgba(255,255,255,0.04); border-color: var(--border2); }
+
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.purchase .step-num { background: rgba(46,204,113,0.25); color: var(--green); }
+.sale .step-num { background: rgba(227,6,19,0.25); color: var(--red); }
+.draft .step-num { background: rgba(240,165,0,0.25); color: var(--amber); }
+.warning .step-num { background: rgba(155,89,182,0.25); color: var(--purple); }
+.manual .step-num { background: rgba(255,255,255,0.08); color: var(--muted); }
+
+.step-content {}
+.step-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.step-detail { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.step-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--amber);
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
+}
+.date-cutoff { color: var(--amber); }
+.date-ok { color: var(--green); }
+
+/* PROJECTED RESULT */
+.projected-block {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-top: 6px;
+}
+.proj-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 10px; }
+.proj-lines { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 2; }
+.proj-line { display: flex; justify-content: space-between; align-items: center; }
+.proj-line .pl-label { color: var(--muted); }
+.proj-line .pl-val { color: var(--text); }
+.proj-line.divider { border-top: 1px solid var(--border); margin-top: 2px; padding-top: 4px; }
+.proj-line.total .pl-label { color: white; font-weight: 600; }
+.proj-line.total .pl-val { color: white; font-weight: 600; }
+.proj-line.pos .pl-val { color: var(--green); }
+.proj-line.neg .pl-val { color: var(--red); }
+.proj-line.zero-line .pl-val { color: var(--green); font-weight: 700; }
+.resolve-banner {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  border-left: 3px solid;
+}
+.rb-yes { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.rb-partial { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+.rb-no { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+/* DO NOT DO */
+.donot-block {
+  margin-top: 6px;
+  background: rgba(255,68,68,0.06);
+  border: 1px solid rgba(255,68,68,0.15);
+  border-radius: 3px;
+  padding: 10px 14px;
+}
+.donot-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,68,68,0.6); margin-bottom: 7px; }
+.donot-item { font-size: 11px; color: rgba(255,68,68,0.7); padding: 2px 0; display: flex; gap: 8px; line-height: 1.5; }
+.donot-item::before { content: "✗"; flex-shrink: 0; }
+
+/* NO-ACTION */
+.no-action {
+  padding: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  font-style: italic;
+}
+/* empty state */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--dim); font-size: 13px; }
+
+/* result count */
+.result-count { font-size: 10px; color: var(--dim); font-family: 'IBM Plex Mono', monospace; margin-top: 8px; }
+
+/* date mismatch */
+.date-mismatch-bar {
+  background: var(--amber-dim);
+  border-left: 3px solid var(--amber);
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--amber);
+  border-radius: 2px;
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div>
+      <div class="logo-name">ClosedLoop</div>
+      <div class="logo-sub">FCS Can Ltd. · Document Flow Reconciliation</div>
+    </div>
+  </div>
+  <div class="hdr-div"></div>
+  <div class="fiscal-badge">📅 Cutoff: March 31 — Date all corrections before this</div>
+  <div class="hdr-right">
+    <span id="sync-label"></span>
+    <button class="hdr-btn" id="refresh-btn" onclick="init()">⟳ Refresh</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="app"></div>
+</div>
+
+<script>
+const SHEET_ID = "1j6D_5NN07ovQa62wVvWs_7n6uXjystpVNHoJFsNe32Y"
+const FISCAL_CUTOFF = "2025-03-31"
+const INACTIVE_WH = ["fcs consignment delta"]
+
+let allData = []
+let activeFilter = "discrepancy"
+let searchTerm = ""
+let sortBy = "gap_desc"
+let openCards = new Set()
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+
+function norm(v) { return String(v || "").trim().toUpperCase() }
+function flt(v) { return parseFloat(v) || 0 }
+function fmt(n) { return parseFloat(n || 0).toLocaleString("en-CA", { maximumFractionDigits: 2 }) }
+function fmtDate(v) {
+  const d = parseDate(v)
+  if (!d) return "—"
+  return d.toLocaleDateString("en-CA")
+}
+function dateStr(v) {
+  const d = parseDate(v)
+  if (!d) return ""
+  return d.toISOString().substring(0, 10)
+}
+function parseDate(v) {
+  if (!v) return null
+  if (typeof v === "string") {
+    const m = v.match(/Date\((\d+),(\d+),(\d+)/)
+    if (m) return new Date(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]))
+    if (v.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(v)
+  }
+  if (typeof v === "number") return new Date(v)
+  return null
+}
+function isBeforeCutoff(dateStr) {
+  if (!dateStr) return false
+  return dateStr <= FISCAL_CUTOFF
+}
+function isInactiveWh(name) { return INACTIVE_WH.includes(String(name || "").toLowerCase().trim()) }
+function extractPRnum(str) {
+  const m = String(str || "").match(/PR-\d+/)
+  return m ? m[0] : ""
+}
+
+// ── SHEET READER ──────────────────────────────────────────────────────────
+
+async function readSheet(name) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}&headers=1`
+  const res = await fetch(url)
+  const text = await res.text()
+  const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)
+  if (!m) throw new Error(`Cannot read sheet: ${name}`)
+  const json = JSON.parse(m[1])
+  if (!json.table || !json.table.rows) return []
+  const cols = json.table.cols.map(c => c.label || "")
+  return json.table.rows.map(r => {
+    const o = {}
+    cols.forEach((c, i) => { o[c] = r.c[i]?.v ?? "" })
+    return o
+  })
+}
+
+// ── BUILD RECONCILIATION ──────────────────────────────────────────────────
+// Physical Stock on Hand  = Receives + Sales Returns - Shipments
+// Accounting Stock on Hand = Bills - Invoices + Credit Notes + Opening Stock
+// Committed Stock          = sum(qty_pending) from SalesOrders
+// Available for Sale       = Stock on Hand - Committed
+
+function buildReconciliation(stockRows, valRows, billRows, invoiceRows, creditNoteRows, movRows, soRows) {
+
+  // ── REFERENCE from Zoho (what Zoho currently shows) ───────────────────
+  const zohoPhysBySku = {}, zohoAccBySku = {}, nameBySku = {}
+  const stockDateBySku = {}, valDateBySku = {}, valValueBySku = {}, unitCostBySku = {}
+  const openingStockBySku = {}, openingRateBySku = {}
+
+  stockRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    zohoPhysBySku[sku] = (zohoPhysBySku[sku] || 0) + flt(r.physical_stock)
+    if (r.item_name) nameBySku[sku] = r.item_name
+    const d = dateStr(r.last_updated); if (d) stockDateBySku[sku] = d
+    if (!(sku in openingStockBySku)) {
+      openingStockBySku[sku] = flt(r.opening_stock)
+      openingRateBySku[sku] = flt(r.opening_stock_rate)
+    }
+  })
+
+  valRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    zohoAccBySku[sku] = (zohoAccBySku[sku] || 0) + flt(r.valuation_qty)
+    valValueBySku[sku] = (valValueBySku[sku] || 0) + flt(r.inventory_value)
+    if (flt(r.unit_cost) > 0) unitCostBySku[sku] = flt(r.unit_cost)
+    const d = dateStr(r.as_of_date); if (d) valDateBySku[sku] = d
+  })
+
+  // ── DOCUMENTS ─────────────────────────────────────────────────────────
+  const receivesBySku = {}, shipmentsBySku = {}, adjBySku = {}, salesReturnsBySku = {}
+  movRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const mod = String(r.module || "")
+    const qty = flt(r.quantity) || flt(r.qty_received) || flt(r.quantity_packed) || flt(r.quantity_adjusted) || flt(r.qty) || 0
+    const doc = {
+      number: r.doc_number || "", date: r.timestamp || r.date || "",
+      qty, status: String(r.status || ""),
+      so_number: String(r.so_number || "").trim(),
+      doc_id: String(r.doc_id || ""),
+      force: mod === "Force Fulfill"
+    }
+    if (mod === "Purchase Receive") { if (!receivesBySku[sku]) receivesBySku[sku] = []; receivesBySku[sku].push(doc) }
+    if (mod === "Shipment" || mod === "Force Fulfill") { if (!shipmentsBySku[sku]) shipmentsBySku[sku] = []; shipmentsBySku[sku].push(doc) }
+    if (mod === "Inventory Adjustment") { if (!adjBySku[sku]) adjBySku[sku] = []; adjBySku[sku].push(doc) }
+    if (mod === "Sales Return") { if (!salesReturnsBySku[sku]) salesReturnsBySku[sku] = []; salesReturnsBySku[sku].push(doc) }
+  })
+
+  const billsBySku = {}
+  billRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    if (!billsBySku[sku]) billsBySku[sku] = []
+    billsBySku[sku].push({
+      number: r.bill_number || "", date: r.date || "",
+      qty: flt(r.qty), receive_id: String(r.receive_id || ""),
+      po_number: r.po_number || "", status: String(r.status || "").toLowerCase()
+    })
+  })
+
+  const invoicesBySku = {}, creditNotesByInvoice = {}
+  invoiceRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const invId = String(r.invoice_id || "").trim()
+    if (!invoicesBySku[sku]) invoicesBySku[sku] = []
+    const inv = {
+      number: r.invoice_number || "", date: r.date || "",
+      qty: flt(r.qty), so_number: String(r.so_number || "").trim(),
+      status: String(r.status || "").toLowerCase(), invoice_id: invId
+    }
+    invoicesBySku[sku].push(inv)
+  })
+
+  const creditNotesBySku = {}
+  creditNoteRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const invoiceId = String(r.invoice_id || "").trim()
+    if (!creditNotesBySku[sku]) creditNotesBySku[sku] = []
+    const cn = {
+      number: r.creditnote_number || "", date: r.date || "",
+      qty: flt(r.qty), invoice_id: invoiceId,
+      so_number: String(r.so_number || "").trim(),
+      status: String(r.status || "").toLowerCase()
+    }
+    creditNotesBySku[sku].push(cn)
+    if (invoiceId) {
+      if (!creditNotesByInvoice[invoiceId]) creditNotesByInvoice[invoiceId] = []
+      creditNotesByInvoice[invoiceId].push(cn)
+    }
+  })
+
+  // ── SALES ORDERS (Committed) ──────────────────────────────────────────
+  const committedBySku = {}, openSOsBySku = {}
+  soRows.forEach(r => {
+    const sku = norm(r.sku); if (!sku) return
+    const pending = flt(r.qty_pending)
+    if (pending > 0) {
+      committedBySku[sku] = (committedBySku[sku] || 0) + pending
+      if (!openSOsBySku[sku]) openSOsBySku[sku] = []
+      openSOsBySku[sku].push({
+        so_number: String(r.so_number || "").trim(),
+        date: r.date || "",
+        customer: r.customer || "",
+        qty_ordered: flt(r.qty_ordered),
+        qty_fulfilled: flt(r.qty_fulfilled),
+        qty_pending: pending,
+        status: String(r.status || "")
+      })
+    }
+  })
+
+  // ── BUILD ALL SKUs ────────────────────────────────────────────────────
+  const allSkus = new Set([
+    ...Object.keys(zohoPhysBySku),
+    ...Object.keys(zohoAccBySku)
+  ])
+
+  return [...allSkus].filter(s => s && s !== "SKU" && s !== "sku").map(sku => {
+    const zohoPhys = zohoPhysBySku[sku] ?? 0
+    const zohoAcc  = zohoAccBySku[sku] ?? null
+    const hasValuation = zohoAcc !== null
+
+    const bills         = billsBySku[sku] || []
+    const invoices      = invoicesBySku[sku] || []
+    const receives      = receivesBySku[sku] || []
+    const shipments     = shipmentsBySku[sku] || []
+    const adjustments   = adjBySku[sku] || []
+    const salesReturns  = salesReturnsBySku[sku] || []
+    const creditNotes   = creditNotesBySku[sku] || []
+    const openSOs       = openSOsBySku[sku] || []
+
+    const draftBills    = bills.filter(b => b.status === "draft")
+    const activeBills   = bills.filter(b => b.status !== "draft")
+    const draftInvoices = invoices.filter(i => i.status === "draft")
+    const activeInvoices = invoices.filter(i => i.status !== "draft")
+    const activeCreditNotes = creditNotes.filter(c => c.status !== "void")
+
+    // ── CALCULATED STOCK ON HAND ──────────────────────────────────────
+    const calcPhysical   = receives.reduce((s,r)=>s+r.qty,0)
+                         + salesReturns.reduce((s,r)=>s+r.qty,0)
+                         - shipments.reduce((s,r)=>s+r.qty,0)
+                         + adjustments.reduce((s,r)=>s+r.qty,0)
+                         + (openingStockBySku[sku] || 0)
+
+    const calcAccounting = activeBills.reduce((s,b)=>s+b.qty,0)
+                         + draftBills.reduce((s,b)=>s+b.qty,0) // drafts not yet in acc
+                         - activeInvoices.reduce((s,i)=>s+i.qty,0)
+                         + activeCreditNotes.reduce((s,c)=>s+c.qty,0)
+                         + (openingStockBySku[sku] || 0)
+
+    // Bills (excl drafts) for accounting
+    const accFromBills    = activeBills.reduce((s,b)=>s+b.qty,0)
+    const accFromInvoices = activeInvoices.reduce((s,i)=>s+i.qty,0)
+    const accFromCNs      = activeCreditNotes.reduce((s,c)=>s+c.qty,0)
+    const accFromAdj      = adjustments.reduce((s,a)=>s+a.qty,0)
+    const accFromOB       = openingStockBySku[sku] || 0
+
+    // Committed from open SOs
+    const committed = committedBySku[sku] || 0
+
+    // Reference: what Zoho shows
+    const physical    = zohoPhys
+    const accounting  = zohoAcc
+    const diff        = hasValuation ? physical - accounting : null
+    const isAccountingNegative = hasValuation && accounting < 0
+
+    // Per-SO gap analysis
+    const soMap = {}
+    shipments.forEach(s => {
+      if (!s.so_number) return
+      if (!soMap[s.so_number]) soMap[s.so_number] = { shipped:0, invoiced:0, shipDates:[], shipNums:[] }
+      soMap[s.so_number].shipped += s.qty
+      soMap[s.so_number].shipDates.push(dateStr(s.date)||"")
+      soMap[s.so_number].shipNums.push({ num: s.number||"—", date: fmtDate(s.date), qty: s.qty })
+    })
+    activeInvoices.forEach(i => {
+      if (!i.so_number) return
+      if (!soMap[i.so_number]) soMap[i.so_number] = { shipped:0, invoiced:0, shipDates:[], shipNums:[] }
+      soMap[i.so_number].invoiced += i.qty
+    })
+
+    // Receives without Bills
+    const allBillsList = [...activeBills, ...draftBills]
+    const receivesNoBill = receives.filter(r => {
+      const pr = extractPRnum(r.number)
+      return !allBillsList.some(b => {
+        if (b.receive_id && r.doc_id && b.receive_id === r.doc_id) return true
+        if (pr && extractPRnum(b.number) === pr) return true
+        return false
+      })
+    })
+
+    const unitCost = unitCostBySku[sku] || (hasValuation && accounting > 0 ? (valValueBySku[sku]||0)/accounting : 0)
+    const valueDiff = diff !== null ? diff * unitCost : null
+    const stockDate = stockDateBySku[sku] || ""
+    const valDate   = valDateBySku[sku] || ""
+    const dateMismatch = stockDate && valDate && stockDate !== valDate
+
+    // Sales Returns without Credit Notes (flag only)
+    const salesReturnsNoCN = salesReturns.filter(sr => {
+      return !activeCreditNotes.some(cn => cn.so_number && sr.so_number && cn.so_number === sr.so_number)
+    })
+
+    return {
+      sku, name: nameBySku[sku] || "",
+      // Zoho reference values
+      physical, accounting, hasValuation, diff, isAccountingNegative,
+      // Calculated values
+      calcPhysical, calcAccounting,
+      accFromBills, accFromInvoices, accFromCNs, accFromAdj, accFromOB,
+      // Committed / Available
+      committed,
+      availablePhysical: physical - committed,
+      availableAccounting: hasValuation ? accounting - committed : null,
+      // Documents
+      bills, activeBills, draftBills,
+      invoices, activeInvoices, draftInvoices,
+      creditNotes, activeCreditNotes,
+      receives, receivesNoBill,
+      shipments, adjustments, salesReturns, salesReturnsNoCN,
+      openSOs,
+      soMap,
+      // Meta
+      unitCost, valueDiff,
+      inventoryValue: valValueBySku[sku] || 0,
+      openingStock: openingStockBySku[sku] || 0,
+      openingStockRate: openingRateBySku[sku] || 0,
+      stockDate, valDate, dateMismatch
+    }
+  })
+}
+
+// ── CLASSIFY ITEM ─────────────────────────────────────────────────────────
+
+function classifyItem(item) {
+  if (!item.hasValuation || item.diff === 0) return { status: "ok", actions: [], investigations: [] }
+  if (item.dateMismatch) return { status: "deep", actions: [], investigations: [
+    { q: "Date Mismatch", detail: `Stock synced ${item.stockDate} · Valuation synced ${item.valDate} — re-sync both to the same date before investigating` }
+  ]}
+
+  const accounting = item.accounting || 0
+  const physical   = item.physical || 0
+  const actions = []
+  const investigations = []
+
+  // ── PURCHASE SIDE ────────────────────────────────────────────────────
+  // Draft Bills → Confirm
+  const seenBills = new Set()
+  item.draftBills.forEach(b => {
+    if (seenBills.has(b.number)) return; seenBills.add(b.number)
+    const d = dateStr(b.date) || ""
+    const usedDate = isBeforeCutoff(d) ? d : "2025-03-31"
+    actions.push({ type:"draft", impact:+b.qty, date:usedDate,
+      label:`Confirm Draft Bill ${b.number||"—"}`,
+      detail:`Draft Bill · <strong>${fmt(b.qty)} units</strong> · Date ${fmtDate(b.date)} · Not yet in Accounting`,
+      zoho:`Zoho → Purchases → Bills → open <strong>${b.number||"draft"}</strong> → Edit date to <strong>${usedDate}</strong> → Click <strong>Save as Open</strong>`,
+      note: isBeforeCutoff(d) ? `✓ Date ${usedDate} is before cutoff` : `⚠ Change date to 2025-03-31 before confirming`
+    })
+  })
+
+  // Receives without Bills → Create Bill
+  const seenRec = new Set()
+  item.receivesNoBill.forEach(r => {
+    if (seenRec.has(r.number)) return; seenRec.add(r.number)
+    const d = dateStr(r.date) || ""
+    const usedDate = isBeforeCutoff(d) ? d : "2025-03-31"
+    actions.push({ type:"purchase", impact:+r.qty, date:usedDate,
+      label:`Create Bill for Receive ${r.number||"—"}`,
+      detail:`Receive <strong>${r.number||"—"}</strong> · <strong>${fmt(r.qty)} units</strong> · Received ${fmtDate(r.date)} · No Bill exists`,
+      zoho:`Zoho → Purchases → Purchase Orders → find PO for receive <strong>${r.number||"—"}</strong> → Open PO → Click <strong>Create Bill</strong> → Set date to <strong>${usedDate}</strong> → Verify qty <strong>${fmt(r.qty)}</strong> → Click <strong>Save as Open</strong>`,
+      note: isBeforeCutoff(d) ? `✓ Date the Bill: ${usedDate}` : `⚠ Receive after March 31 — date to 2025-03-31, confirm with accounting`
+    })
+  })
+
+  // ── SALES SIDE (per SO) ───────────────────────────────────────────────
+  const seenSOs = new Set()
+  Object.entries(item.soMap).forEach(([so, d]) => {
+    if (seenSOs.has(so)) return; seenSOs.add(so)
+    const gap = d.shipped - d.invoiced
+    if (gap > 0.01) {
+      const latestDate = d.shipDates.filter(Boolean).sort().pop() || ""
+      const usedDate = isBeforeCutoff(latestDate) ? latestDate : "2025-03-31"
+      const shipList = d.shipNums.map(s=>`<strong>${s.num}</strong> (${s.date}, ${fmt(s.qty)} units)`).join(", ")
+      actions.push({ type:"sale", impact:-gap, date:usedDate,
+        label:`Create Invoice for SO ${so}`,
+        detail:`Shipped: <strong>${fmt(d.shipped)}</strong> · Invoiced: <strong>${fmt(d.invoiced)}</strong> · Missing: <strong>${fmt(gap)} units</strong> · Shipments: ${shipList}`,
+        zoho:`Zoho → Sales → Sales Orders → open <strong>${so}</strong> → Click <strong>Create Invoice</strong> → Set date to <strong>${usedDate}</strong> → Set qty to <strong>${fmt(gap)}</strong> → Click <strong>Save as Open</strong>`,
+        note: isBeforeCutoff(latestDate) ? `✓ Date the Invoice: ${usedDate}` : `⚠ Shipment after March 31 — date to 2025-03-31, confirm with accounting`
+      })
+    } else if (gap < -0.01) {
+      const over = Math.abs(gap)
+      actions.push({ type:"warning", impact:+over, date:"2025-03-31",
+        label:`Create Credit Note for SO ${so} — over-invoiced by ${fmt(over)} units`,
+        detail:`Shipped: <strong>${fmt(d.shipped)}</strong> · Invoiced: <strong>${fmt(d.invoiced)}</strong> · Over by: <strong>${fmt(over)} units</strong>`,
+        zoho:`Zoho → Sales → Invoices → find Invoice for SO <strong>${so}</strong> → If <strong>not paid</strong>: edit qty to ${fmt(d.shipped)} → If <strong>paid</strong>: click <strong>Create Credit Note</strong> → set qty <strong>${fmt(over)}</strong> → set date <strong>2025-03-31</strong> → Save`,
+        note:`⚠ Do not void a paid Invoice — use Credit Note`
+      })
+    }
+  })
+
+  // ── INVESTIGATIONS ────────────────────────────────────────────────────
+  // Negative accounting
+  if (item.isAccountingNegative) {
+    investigations.push({
+      q:`Accounting is negative (${fmt(accounting)} units) — find root cause first`,
+      detail:`Zoho → Reports → Inventory Valuation Summary → filter SKU <strong>${item.sku}</strong> → open <strong>Item Transaction History</strong> → find the first date stock went negative → identify the document (Invoice without a Bill, voided Bill, Adjustment) → fix that document first`
+    })
+  }
+
+  // Adjustments
+  const adjTotal = item.adjustments.reduce((s,a)=>s+a.qty,0)
+  if (Math.abs(adjTotal) > 0) {
+    investigations.push({
+      q:`Inventory Adjustments: ${adjTotal>0?"+":""}${fmt(adjTotal)} units total — confirm these were intentional`,
+      detail:`${item.adjustments.length} adjustment(s) already in Accounting. Zoho → Inventory → Inventory Adjustments → search SKU <strong>${item.sku}</strong> → verify each was approved and correct. If any were errors, they need to be reversed.`
+    })
+  }
+
+  // Credit Notes without SO
+  const cnsNoSO = item.activeCreditNotes.filter(c=>!c.so_number)
+  if (cnsNoSO.length > 0) {
+    const cnQty = cnsNoSO.reduce((s,c)=>s+c.qty,0)
+    investigations.push({
+      q:`${cnsNoSO.length} Credit Note(s) with no SO — ${fmt(cnQty)} units`,
+      detail:`${cnsNoSO.map(c=>`<strong>${c.number||"—"}</strong> (${fmt(c.qty)} units, ${fmtDate(c.date)})`).join(", ")} · Zoho → Sales → Credit Notes → open each → verify which Invoice and SO it reverses → link correctly`
+    })
+  }
+
+  // Sales Returns without matching Credit Note
+  if (item.salesReturnsNoCN && item.salesReturnsNoCN.length > 0) {
+    const srQty = item.salesReturnsNoCN.reduce((s,r)=>s+r.qty,0)
+    investigations.push({
+      q:`${item.salesReturnsNoCN.length} Sales Return(s) with no Credit Note — ${fmt(srQty)} units returned physically`,
+      detail:`These returns added stock back physically but may not have a corresponding Credit Note in Accounting. Zoho → Sales → Sales Returns → verify each → if Credit Note is missing, create one from the linked Invoice`
+    })
+  }
+
+  // Open SOs with pending qty (Committed)
+  if (item.openSOs && item.openSOs.length > 0) {
+    const pendingTotal = item.openSOs.reduce((s,o)=>s+o.qty_pending,0)
+    const soList = item.openSOs.map(o=>`<strong>${o.so_number}</strong> (${o.customer||"—"}, ${fmt(o.qty_pending)} pending)`).join(", ")
+    investigations.push({
+      q:`${item.openSOs.length} open SO(s) with ${fmt(pendingTotal)} units pending fulfillment — this is your Committed Stock`,
+      detail:`${soList} · These SOs are confirmed but not yet fully shipped. Once shipped and invoiced, Committed drops and Available for Sale aligns. No action needed unless the SO should be cancelled.`
+    })
+  }
+
+  // ── PROJECTED RESULT ─────────────────────────────────────────────────
+  const projAcc = accounting + actions.reduce((s,a)=>s+a.impact,0)
+  const projDiff = physical - projAcc
+  const resolvesToZero = Math.abs(projDiff) < 0.5
+
+  // Opening balance check for residual
+  if (!resolvesToZero && item.openingStock > 0 && Math.abs(projDiff - item.openingStock) < 1) {
+    investigations.push({
+      q:`Opening Balance of ${fmt(item.openingStock)} units explains the residual ${fmt(projDiff)} units`,
+      detail:`Opening Stock at migration (2023-08-23): <strong>${fmt(item.openingStock)} units @ $${fmt(item.openingStockRate)}</strong> already in Accounting. Zoho → Items → search <strong>${item.sku}</strong> → verify Opening Stock field is correct`
+    })
+  } else if (!resolvesToZero && actions.length > 0) {
+    investigations.push({
+      q:`Residual of ${projDiff>0?"+":""}${fmt(projDiff)} units remains after all document actions`,
+      detail:`After completing all actions above, Accounting will be <strong>${fmt(projAcc)}</strong> but Physical is <strong>${fmt(physical)}</strong>. Zoho → Items → <strong>${item.sku}</strong> → Item Transaction History → find transactions not in the Google Sheet`
+    })
+  }
+
+  // Status: easy only if resolves to zero AND no blocking investigations
+  const blockingInvestigations = investigations.filter(i =>
+    !i.q.includes("Committed Stock") &&
+    !i.q.includes("Opening Balance") &&
+    !i.q.includes("Sales Return")
+  )
+  let status
+  if (item.isAccountingNegative) status = "deep"
+  else if (actions.length === 0 && investigations.length === 0) status = "ok"
+  else if (resolvesToZero && blockingInvestigations.length === 0) status = "easy"
+  else status = "deep"
+
+  return { status, actions, investigations, projAcc, projDiff, resolvesToZero }
+}
+
+// Wrapper so existing callers still work
+function buildActions(item) { return classifyItem(item).actions }
+
+// ── STATUS TAG ────────────────────────────────────────────────────────────
+
+function statusTag(status) {
+  if (status === "easy") return `<span class="cause-tag ct-ok">🟢 Easy Fix</span>`
+  if (status === "deep") return `<span class="cause-tag ct-critical">🔴 Deep Analysis</span>`
+  if (status === "ok")   return `<span class="cause-tag ct-ok">✓ Reconciled</span>`
+  return `<span class="cause-tag ct-noval">—</span>`
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+
+function render() {
+  let data = [...allData]
+
+  // Filter
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase()
+    data = data.filter(r => r.sku.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+  }
+  if (activeFilter === "discrepancy") data = data.filter(r => r.diff !== 0 && r.diff !== null && !(r.physical === 0 && !r.hasValuation))
+  if (activeFilter === "easy") data = data.filter(r => classifyItem(r).status === "easy")
+  if (activeFilter === "deep") data = data.filter(r => classifyItem(r).status === "deep")
+  if (activeFilter === "critical") data = data.filter(r => r.isAccountingNegative)
+  if (activeFilter === "ok") data = data.filter(r => r.diff === 0)
+
+  // Sort
+  if (sortBy === "gap_desc") data.sort((a, b) => Math.abs(b.valueDiff || 0) - Math.abs(a.valueDiff || 0))
+  if (sortBy === "qty_desc") data.sort((a, b) => Math.abs(b.diff || 0) - Math.abs(a.diff || 0))
+  if (sortBy === "sku") data.sort((a, b) => a.sku.localeCompare(b.sku))
+
+  // Counts
+  const total = allData.length
+  const withDiff = allData.filter(r => r.diff !== 0 && r.diff !== null).length
+  const ok = allData.filter(r => r.diff === 0).length
+  const critCount = allData.filter(r => r.isAccountingNegative).length
+  const totalValueGap = allData.reduce((s, r) => s + Math.abs(r.valueDiff || 0), 0)
+  const withVal = allData.filter(r => r.hasValuation).length
+  const reconciledPct = withVal > 0 ? Math.round((ok / withVal) * 100) : 0
+
+  // Stock / Val dates
+  const stockDates = allData.map(r => r.stockDate).filter(Boolean).sort()
+  const valDates = allData.map(r => r.valDate).filter(Boolean).sort()
+  const latestStock = stockDates[stockDates.length - 1] || "—"
+  const latestVal = valDates[valDates.length - 1] || "—"
+  document.getElementById("sync-label").textContent = `Stock: ${latestStock} · Val: ${latestVal}`
+
+  const easyCount = allData.filter(r => classifyItem(r).status === "easy").length
+  const deepCount = allData.filter(r => classifyItem(r).status === "deep").length
+
+  const summaryHtml = `<div class="summary-bar">
+    <div class="sbar-item">
+      <div class="sbar-label">SKUs with Discrepancy</div>
+      <div class="sbar-val ${withDiff > 0 ? "red" : "green"}">${withDiff}</div>
+      <div class="sbar-sub">of ${total} total SKUs</div>
+    </div>
+    <div class="sbar-item">
+      <div class="sbar-label">🟢 Easy Fix</div>
+      <div class="sbar-val green">${easyCount}</div>
+      <div class="sbar-sub">clear steps, resolves to 0</div>
+    </div>
+    <div class="sbar-item">
+      <div class="sbar-label">🔴 Deep Analysis</div>
+      <div class="sbar-val critical">${deepCount}</div>
+      <div class="sbar-sub">requires investigation</div>
+    </div>
+    <div class="sbar-item">
+      <div class="sbar-label">Value at Risk</div>
+      <div class="sbar-val ${totalValueGap > 0 ? "red" : "green"}" style="font-size:16px">$${totalValueGap.toLocaleString("en-CA", { maximumFractionDigits: 0 })}</div>
+      <div class="sbar-sub">total gap value</div>
+    </div>
+    <div class="sbar-item">
+      <div class="sbar-label">Reconciled</div>
+      <div class="sbar-val green">${reconciledPct}%</div>
+      <div class="sbar-sub">${ok} of ${withVal} SKUs</div>
+    </div>
+  </div>`
+
+  const cutoffHtml = `<div class="cutoff-bar">
+    <strong>📅 Fiscal Year Cutoff: March 31, 2025</strong> &nbsp;—&nbsp;
+    All document corrections must be dated <strong>on or before March 31, 2025</strong>. Dates shown in <span style="color:var(--amber)">amber</span> need attention.
+  </div>`
+
+  const filterHtml = `<div class="filter-row">
+    <input class="search-box" type="text" placeholder="Search SKU or name..." value="${searchTerm}" oninput="onSearch(this.value)" />
+    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim)">Show:</span>
+    <button class="filter-pill ${activeFilter === "discrepancy" ? "active" : ""}" onclick="setFilter('discrepancy')">All Issues (${withDiff})</button>
+    <button class="filter-pill ${activeFilter === "easy" ? "active" : ""}" onclick="setFilter('easy')" style="${activeFilter==='easy'?'':'border-color:var(--green);color:var(--green)'}">🟢 Easy Fix (${easyCount})</button>
+    <button class="filter-pill ${activeFilter === "deep" ? "active" : ""}" onclick="setFilter('deep')" style="${activeFilter==='deep'?'':'border-color:var(--critical);color:var(--critical)'}">🔴 Deep Analysis (${deepCount})</button>
+    <button class="filter-pill ${activeFilter === "critical" ? "active" : ""}" onclick="setFilter('critical')">⚠ Negative Acc. (${critCount})</button>
+    <button class="filter-pill ${activeFilter === "ok" ? "active" : ""}" onclick="setFilter('ok')">✓ Reconciled (${ok})</button>
+    <div class="ml-auto">
+      <select class="sort-sel" onchange="setSort(this.value)">
+        <option value="gap_desc" ${sortBy === "gap_desc" ? "selected" : ""}>Sort: Value Gap ↓</option>
+        <option value="qty_desc" ${sortBy === "qty_desc" ? "selected" : ""}>Sort: Qty Gap ↓</option>
+        <option value="sku" ${sortBy === "sku" ? "selected" : ""}>Sort: SKU A–Z</option>
+      </select>
+    </div>
+  </div>`
+
+  let listHtml = ""
+  if (data.length === 0) {
+    listHtml = `<div class="empty-state">No items match this filter.</div>`
+  } else {
+    listHtml = data.map(item => buildCard(item)).join("")
+  }
+
+  const countHtml = `<div class="result-count">${data.length} of ${total} SKUs shown · Cutoff: March 31, 2025 · Incomplete flows only</div>`
+
+  document.getElementById("app").innerHTML = summaryHtml + cutoffHtml + filterHtml + `<div class="item-list">${listHtml}</div>` + countHtml
+}
+
+// ── BUILD CARD ────────────────────────────────────────────────────────────
+
+function buildCard(item) {
+  const isOpen = openCards.has(item.sku)
+  const { status, actions, investigations, projAcc, projDiff, resolvesToZero } = classifyItem(item)
+  const dSign = item.diff !== null && item.diff > 0 ? "+" : ""
+  const diffCls = item.isAccountingNegative ? "critical" : item.diff > 0 ? "pos" : item.diff < 0 ? "neg" : "zero"
+  const accCls = item.isAccountingNegative ? "critical" : ""
+  const totalActions = actions.length + investigations.length
+  const actionBadge = totalActions > 0 ? `<span class="action-count-badge">${totalActions} item${totalActions > 1 ? "s" : ""}</span>` : ""
+
+  const headHtml = `<div class="item-head ${isOpen ? "open" : ""}" onclick="toggleCard('${item.sku}')">
+    <span class="ih-arrow ${isOpen ? "open" : ""}">▶</span>
+    <div class="sku-block">
+      <div class="sku-txt">${item.sku}</div>
+    </div>
+    <div class="ih-name" title="${item.name}">${item.name || "—"}</div>
+    <div class="ih-num" style="color:var(--green)">${fmt(item.physical)}</div>
+    <div class="ih-num ${accCls}">${item.hasValuation ? fmt(item.accounting) : '<span style="color:var(--dim)">—</span>'}</div>
+    <div class="ih-num ${diffCls}">${item.diff === null ? "—" : dSign + fmt(item.diff)}</div>
+    <div class="ih-num" style="color:var(--dim);font-size:11px">${item.valueDiff && item.unitCost > 0 ? (item.valueDiff > 0 ? "+" : "") + "$" + fmt(Math.abs(item.valueDiff)) : "—"}</div>
+    <div>${statusTag(status)}</div>
+    <div>${actionBadge}</div>
+  </div>`
+
+  if (!isOpen) return `<div class="item-card ${item.isAccountingNegative ? "critical-card" : ""}">${headHtml}</div>`
+
+  const bodyHtml = buildBody(item, status, actions, investigations, projAcc, projDiff, resolvesToZero)
+  return `<div class="item-card ${item.isAccountingNegative ? "critical-card" : ""}">${headHtml}<div class="item-body open">${bodyHtml}</div></div>`
+}
+
+function buildDocTable(rows, cols, title, borderColor) {
+  if (!rows || rows.length === 0) return ""
+  const colDefs = {
+    number:   { label: "Document #", fn: r => `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600">${r.number || "—"}</span>` },
+    date:     { label: "Date", fn: r => `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${fmtDate(r.date)}</span>` },
+    qty:      { label: "Qty", fn: r => `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">${fmt(r.qty)}</span>` },
+    status:   { label: "Status", fn: r => `<span style="font-size:10px;color:var(--muted)">${r.status || "—"}</span>` },
+    so:       { label: "SO #", fn: r => r.so_number ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${r.so_number}</span>` : `<span style="color:var(--dim)">—</span>` },
+    receive:  { label: "Receive Link", fn: r => r.receive_id ? `<span style="font-size:10px;color:var(--green)">✓ Linked</span>` : `<span style="font-size:10px;color:var(--red)">✗ No Receive</span>` },
+    bill:     { label: "Bill Link", fn: r => `<span style="font-size:10px;color:var(--muted)">${r.doc_id || "—"}</span>` },
+  }
+  const thStyle = `style="padding:6px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap"`
+  const tdStyle = `style="padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle"`
+  let t = `<div style="margin-bottom:10px">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${borderColor};margin-bottom:6px;padding-left:2px">${title}</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-left:3px solid ${borderColor};border-radius:3px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr>${cols.map(c => `<th ${thStyle}>${colDefs[c].label}</th>`).join("")}</tr></thead>
+    <tbody>`
+  rows.forEach(r => {
+    t += `<tr>${cols.map(c => `<td ${tdStyle}>${colDefs[c].fn(r)}</td>`).join("")}</tr>`
+  })
+  t += `</tbody></table></div></div>`
+  return t
+}
+
+function buildBody(item, status, actions, investigations, projAcc, projDiff, resolvesToZero) {
+  let html = ""
+
+  // Date mismatch warning
+  if (item.dateMismatch) {
+    html += `<div class="date-mismatch-bar" style="margin-top:12px">⚪ <strong>Date Mismatch:</strong> Stock synced ${item.stockDate} · Valuation synced ${item.valDate} — Re-sync both for the same date before acting. Difference may be a false positive.</div>`
+  }
+
+  // Critical alert — warning only, still show everything below
+  if (item.isAccountingNegative) {
+    html += `<div class="critical-alert" style="margin-top:12px">
+      <strong>⚠ CRITICAL — Accounting Stock is Negative (${fmt(item.accounting)} units)</strong><br>
+      Accounting outflows (Invoices) exceeded inflows (Bills). The document chain below shows every transaction on record — use it to find what's missing or duplicated.<br><br>
+      <strong>Rule:</strong> Do NOT create an Inventory Adjustment. Fix the document that caused this — a missing Bill, an extra Invoice, or a voided Bill. All actions below are shown so you can see what the system has vs. what it's missing.
+    </div>`
+  }
+
+  // Numbers — show all 3 fields for both sides
+  const availPhys = item.physical - item.committed
+  const availAcc  = item.hasValuation ? item.accounting - item.committed : null
+  html += `<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-top:2px solid var(--green);border-radius:3px;padding:12px 14px">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green);margin-bottom:8px">Physical Stock</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Stock on Hand</span><span style="color:var(--text)">${fmt(item.physical)}</span></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Committed Stock</span><span style="color:var(--amber)">${fmt(item.committed)}</span></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--muted)">Available for Sale</span><span style="color:${availPhys>=0?"var(--green)":"var(--red)"}">${fmt(availPhys)}</span></div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Zoho Stock · ${item.stockDate||"—"}</div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-top:2px solid var(--blue);border-radius:3px;padding:12px 14px">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--blue);margin-bottom:8px">Accounting Stock</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Stock on Hand</span><span style="color:${item.isAccountingNegative?"var(--critical)":"var(--text)"}">${item.hasValuation?fmt(item.accounting):"—"}</span></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Committed Stock</span><span style="color:var(--amber)">${fmt(item.committed)}</span></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;display:flex;justify-content:space-between;padding:4px 0"><span style="color:var(--muted)">Available for Sale</span><span style="color:${availAcc!==null&&availAcc>=0?'var(--green)':'var(--red)'}">${availAcc!==null?fmt(availAcc):"—"}</span></div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Zoho Valuation · ${item.valDate||"—"}${item.inventoryValue>0?" · $"+fmt(item.inventoryValue):""}</div>
+    </div>
+  </div>
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:8px 14px;margin-top:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;display:flex;gap:24px;align-items:center">
+    <span style="color:var(--dim)">Stock on Hand gap:</span>
+    <span style="color:${item.diff!==null&&item.diff>=0?'var(--green)':'var(--red)'}"><strong>${item.diff!==null?(item.diff>0?"+":"")+fmt(item.diff)+" units":"—"}</strong></span>
+    ${item.unitCost>0?'<span style="color:var(--dim)"> · Value: <strong style="color:'+(item.diff>=0?'var(--green)':'var(--red)')+(item.diff>0?'">+':'">-')+'$'+fmt(Math.abs(item.valueDiff||0))+'</strong> @ $'+fmt(item.unitCost)+'/unit</span>':''}
+  </div>`
+
+  // ── DOCUMENT CHAIN BREAKDOWN ──────────────────────────────────────────
+  const hasAnyDocs = item.receives.length > 0 || item.activeBills.length > 0 || item.draftBills.length > 0
+    || item.shipments.length > 0 || item.activeInvoices.length > 0 || item.draftInvoices.length > 0
+    || item.activeCreditNotes.length > 0 || item.adjustments.length > 0
+
+  if (hasAnyDocs) {
+    html += `<div class="section"><div class="section-title">Document Chain — Every Transaction on Record</div>`
+
+    // Purchase side
+    const allBills = [...item.activeBills, ...item.draftBills]
+    if (item.receives.length > 0 || allBills.length > 0) {
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">`
+
+      // Receives
+      if (item.receives.length > 0) {
+        html += buildDocTable(item.receives, ["number","date","qty","status"], `📦 Purchase Receives (${item.receives.length}) — adds to Physical`, "var(--green)")
+      } else {
+        html += `<div style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:3px;font-size:11px;color:var(--dim)">📦 No Purchase Receives on record</div>`
+      }
+
+      // Bills
+      if (allBills.length > 0) {
+        const billRows = allBills.map(b => ({ ...b, number: b.number + (b.status === "draft" ? " [DRAFT]" : "") }))
+        html += buildDocTable(billRows, ["number","date","qty","status","receive"], `🧾 Bills (${allBills.length}) — adds to Accounting`, "var(--blue)")
+      } else {
+        html += `<div style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:3px;font-size:11px;color:var(--red)">🧾 No Bills on record — Receives exist but no Bill created yet</div>`
+      }
+      html += `</div>`
+
+      // Purchase summary line
+      const receivedTotal = item.receives.reduce((s, r) => s + r.qty, 0)
+      const billedTotal = allBills.reduce((s, b) => s + b.qty, 0)
+      const pDiff = receivedTotal - billedTotal
+      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:8px 12px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:20px;align-items:center">
+        <span style="color:var(--dim)">Purchase flow:</span>
+        <span>Received <strong style="color:var(--green)">${fmt(receivedTotal)}</strong> units</span>
+        <span>Billed <strong style="color:var(--blue)">${fmt(billedTotal)}</strong> units</span>
+        <span style="color:${Math.abs(pDiff) < 0.01 ? "var(--green)" : "var(--amber)"}">${Math.abs(pDiff) < 0.01 ? "✓ Matched" : (pDiff > 0 ? "⚠ Under-billed by +" : "⚠ Over-billed by ") + fmt(Math.abs(pDiff))}</span>
+      </div>`
+    }
+
+    // Sales side
+    const allInvoices = [...item.activeInvoices, ...item.draftInvoices]
+    if (item.shipments.length > 0 || allInvoices.length > 0) {
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">`
+
+      // Shipments
+      if (item.shipments.length > 0) {
+        html += buildDocTable(item.shipments, ["number","date","qty","so"], `🚚 Shipments (${item.shipments.length}) — removes from Physical`, "var(--amber)")
+      } else {
+        html += `<div style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:3px;font-size:11px;color:var(--dim)">🚚 No Shipments on record</div>`
+      }
+
+      // Invoices
+      if (allInvoices.length > 0) {
+        const invRows = allInvoices.map(i => ({ ...i, number: i.number + (i.status === "draft" ? " [DRAFT]" : "") }))
+        html += buildDocTable(invRows, ["number","date","qty","status","so"], `📄 Invoices (${allInvoices.length}) — removes from Accounting`, "var(--red)")
+      } else {
+        html += `<div style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:3px;font-size:11px;color:var(--dim)">📄 No Invoices on record</div>`
+      }
+      html += `</div>`
+
+      // Sales summary line
+      const shippedTotal = item.shipments.reduce((s, s2) => s + s2.qty, 0)
+      const invoicedTotal = allInvoices.reduce((s, i) => s + i.qty, 0)
+      const sDiff = shippedTotal - invoicedTotal
+      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:8px 12px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:20px;align-items:center">
+        <span style="color:var(--dim)">Sales flow:</span>
+        <span>Shipped <strong style="color:var(--amber)">${fmt(shippedTotal)}</strong> units</span>
+        <span>Invoiced <strong style="color:var(--red)">${fmt(invoicedTotal)}</strong> units</span>
+        <span style="color:${Math.abs(sDiff) < 0.01 ? "var(--green)" : "var(--amber)"}">${Math.abs(sDiff) < 0.01 ? "✓ Matched" : (sDiff > 0 ? "⚠ Under-invoiced by +" : "⚠ Over-invoiced by ") + fmt(Math.abs(sDiff))}</span>
+      </div>`
+    }
+
+    // Credit Notes
+    if (item.activeCreditNotes.length > 0) {
+      html += buildDocTable(item.activeCreditNotes, ["number","date","qty","so"], `↩ Credit Notes (${item.activeCreditNotes.length}) — reverses Invoices, adds back to Accounting`, "var(--purple)")
+    }
+
+    // Adjustments
+    if (item.adjustments.length > 0) {
+      const adjTotal = item.adjustments.reduce((s, a) => s + a.qty, 0)
+      html += buildDocTable(item.adjustments, ["number","date","qty","status"], `⚖ Inventory Adjustments (${item.adjustments.length}) · Total: ${adjTotal > 0 ? "+" : ""}${fmt(adjTotal)} units — already in Accounting`, "var(--purple)")
+    }
+
+    html += `</div>` // close section
+  }
+
+  // ── EASY FIX ACTIONS ─────────────────────────────────────────────────
+  if (status === "easy" && actions.length > 0) {
+    html += `<div class="actions-block" style="margin-top:10px">`
+    html += `<div class="actions-header" style="background:var(--green);color:#000"><span>🟢 Easy Fix — Complete These Steps to Reach Zero</span><span>${actions.length} action${actions.length>1?"s":""}</span></div>`
+    html += `<div class="actions-list">`
+    actions.forEach((a, i) => {
+      const impactColor = a.impact > 0 ? "var(--green)" : a.impact < 0 ? "var(--red)" : "var(--dim)"
+      const impactLabel = a.impact > 0 ? `+${fmt(a.impact)} to Accounting` : a.impact < 0 ? `${fmt(a.impact)} from Accounting` : `no qty impact`
+      html += `<div class="action-step ${a.type}">
+        <div class="step-num">${i+1}</div>
+        <div class="step-content">
+          <div class="step-label">${a.label}</div>
+          <div class="step-detail">${a.detail}</div>
+          ${a.zoho ? `<div style="margin-top:6px;padding:7px 10px;background:rgba(255,255,255,0.04);border-left:2px solid rgba(255,255,255,0.2);border-radius:2px;font-size:11px;line-height:1.8;color:var(--text)">📍 <strong>In Zoho:</strong> ${a.zoho}</div>` : ""}
+          <div style="margin-top:4px;font-size:11px;color:${a.note&&a.note.startsWith('✓')?'var(--green)':'var(--amber)'}">${a.note||""}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;padding-left:12px;min-width:120px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${impactColor}">${impactLabel}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:3px">${a.date||"—"}</div>
+        </div>
+      </div>`
+    })
+    html += `</div>`
+
+    // Projected result
+    const currentAcc = item.accounting || 0
+    html += `<div class="projected-block" style="margin:8px">
+      <div class="proj-title">Projected Result After All Actions</div>
+      <div class="proj-lines">
+        <div class="proj-line"><span class="pl-label">Current Official Accounting</span><span class="pl-val">${fmt(currentAcc)}</span></div>`
+    let running = currentAcc
+    actions.forEach(a => {
+      running += a.impact
+      html += `<div class="proj-line ${a.impact>=0?"pos":"neg"}"><span class="pl-label">&nbsp;&nbsp;${a.impact>=0?"+":""}${fmt(a.impact)} (${a.label.length>45?a.label.substring(0,45)+"…":a.label})</span><span class="pl-val">${fmt(running)}</span></div>`
+    })
+    html += `<div class="proj-line total divider"><span class="pl-label">= Projected Accounting</span><span class="pl-val">${fmt(projAcc)}</span></div>
+        <div class="proj-line"><span class="pl-label">&nbsp;&nbsp;Physical Stock</span><span class="pl-val">${fmt(item.physical)}</span></div>
+        <div class="proj-line zero-line divider"><span class="pl-label">= Projected Difference</span><span class="pl-val">${fmt(projDiff)}</span></div>
+      </div>
+      <div class="resolve-banner rb-yes">✓ These actions will fully reconcile this SKU to zero.</div>
+    </div>`
+    html += `</div>`
+  }
+
+  // ── DEEP ANALYSIS ────────────────────────────────────────────────────
+  if (status === "deep") {
+    html += `<div class="actions-block" style="margin-top:10px">`
+    html += `<div class="actions-header" style="background:var(--critical)"><span>🔴 Deep Analysis Required</span><span>${investigations.length} item${investigations.length>1?"s":""} to investigate</span></div>`
+
+    if (actions.length > 0) {
+      html += `<div style="padding:10px 12px;font-size:11px;color:var(--amber);border-bottom:1px solid var(--border)">⚠ Some document actions identified below — but a residual remains. Investigate first, then decide which actions to take.</div>`
+      html += `<div class="actions-list">`
+      actions.forEach((a, i) => {
+        const impactColor = a.impact > 0 ? "var(--green)" : a.impact < 0 ? "var(--red)" : "var(--dim)"
+        const impactLabel = a.impact > 0 ? `+${fmt(a.impact)} to Acc.` : a.impact < 0 ? `${fmt(a.impact)} from Acc.` : `—`
+        html += `<div class="action-step ${a.type}" style="opacity:0.8">
+          <div class="step-num">${i+1}</div>
+          <div class="step-content">
+            <div class="step-label">${a.label}</div>
+            <div class="step-detail">${a.detail}</div>
+            ${a.zoho ? `<div style="margin-top:5px;padding:6px 10px;background:rgba(255,255,255,0.03);border-left:2px solid rgba(255,255,255,0.15);border-radius:2px;font-size:11px;line-height:1.8;color:var(--text)">📍 <strong>In Zoho:</strong> ${a.zoho}</div>` : ""}
+          </div>
+          <div style="text-align:right;flex-shrink:0;padding-left:12px;min-width:100px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${impactColor}">${impactLabel}</div>
+          </div>
+        </div>`
+      })
+      html += `</div>`
+    }
+
+    // Investigation questions
+    html += `<div style="padding:8px">`
+    investigations.forEach((inv, i) => {
+      html += `<div style="margin-bottom:6px;padding:10px 14px;background:var(--critical-dim);border:1px solid rgba(255,68,68,0.2);border-left:3px solid var(--critical);border-radius:3px">
+        <div style="font-size:11px;font-weight:700;color:var(--critical);margin-bottom:4px">🔍 ${i+1}. ${inv.q}</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.7">${inv.detail}</div>
+      </div>`
+    })
+    html += `</div>`
+    html += `</div>`
+  }
+
+  // No issues
+  if (status === "ok" || (actions.length === 0 && investigations.length === 0 && item.diff !== 0)) {
+    html += `<div style="margin-top:10px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;font-size:12px;color:var(--dim);text-align:center">
+      ${item.diff === 0 ? "✓ Physical and Accounting match — no action needed." : "No document gaps detected. Check Item Transaction History in Zoho for manual entries."}
+    </div>`
+  }
+
+  // Do Not Do
+  const doNots = buildDoNots(item, actions)
+  if (doNots.length > 0) {
+    html += `<div class="donot-block" style="margin-top:8px">
+      <div class="donot-title">Do Not Do</div>
+      ${doNots.map(d => `<div class="donot-item">${d}</div>`).join("")}
+    </div>`
+  }
+
+  return html
+}
+
+function buildDoNots(item, actions) {
+  const list = []
+  if (item.isAccountingNegative) {
+    list.push("Do not create any Inventory or Value Adjustment — find root cause first")
+    list.push("Do not void Invoices without reviewing FIFO/COGS impact")
+    return list
+  }
+  const hasPriorYear = actions.some(a => a.date && a.date < "2025-04-01")
+  if (hasPriorYear) list.push("Do not create Bills or Invoices with today's date for prior-period transactions — use the original document date (before March 31, 2025)")
+  if (item.activeBills && item.activeBills.some(b => b.status === "paid" || b.status === "partially_paid")) list.push("Do not void or delete paid Bills without accounting approval")
+  if (item.activeInvoices && item.activeInvoices.some(i => i.status === "paid" || i.status === "partially_paid")) list.push("Do not void paid Invoices without accounting approval")
+  if (item.diff !== 0 && actions.length > 0) list.push("Do not create an Inventory Adjustment to fix this — complete the document chain first")
+  return list
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────────────
+
+function toggleCard(sku) {
+  if (openCards.has(sku)) openCards.delete(sku)
+  else openCards.add(sku)
+  render()
+}
+function setFilter(f) { activeFilter = f; openCards.clear(); render() }
+function setSort(s) { sortBy = s; render() }
+function onSearch(v) { searchTerm = v; render() }
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+
+function showLoading(msg) {
+  document.getElementById("app").innerHTML = `<div class="loading-wrap"><div class="loading-track"><div class="loading-fill"></div></div><div class="loading-msg">${msg}</div></div>`
+}
+
+async function init() {
+  showLoading("Loading sheets...")
+  try {
+    const [stockRows, valRows, billRows, invoiceRows, creditNoteRows, movRows, soRows] = await Promise.all([
+      readSheet("Stock"), readSheet("Valuation"),
+      readSheet("Bills"), readSheet("Invoices"), readSheet("CreditNotes"),
+      readSheet("Sheet1"), readSheet("SalesOrders")
+    ])
+    showLoading("Building reconciliation...")
+    allData = buildReconciliation(stockRows, valRows, billRows, invoiceRows, creditNoteRows, movRows, soRows)
+    window.render ? window.render() : render()
+  } catch (e) {
+    document.getElementById("app").innerHTML = `<div class="error-box"><strong>Error loading data:</strong> ${e.message}<br><pre style="font-size:10px;margin-top:8px;color:var(--muted)">${e.stack||""}</pre></div>`
+  }
+}
+
+// Column headers helper — render above the list
+function renderColumnHeaders() {
+  return `<div style="display:grid;grid-template-columns:28px 160px 1fr 90px 90px 90px 90px 140px 120px;align-items:center;padding:6px 14px;gap:0;border:1px solid var(--border);border-radius:3px;background:var(--surface2);margin-bottom:4px">
+    <div></div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)">SKU</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)">Name</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);text-align:right;padding-right:14px">Physical</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);text-align:right;padding-right:14px">Accounting</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);text-align:right;padding-right:14px">Difference</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim);text-align:right;padding-right:14px">Value Gap</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)">Cause</div>
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--dim)">Actions</div>
+  </div>`
+}
+
+// Patch render to include column headers
+const _render = render
+window.render = function() {
+  _render()
+  const itemList = document.querySelector(".item-list")
+  if (itemList) {
+    const headers = document.createElement("div")
+    headers.innerHTML = renderColumnHeaders()
+    itemList.parentNode.insertBefore(headers.firstChild, itemList)
+  }
+}
+
+init()
+</script>
+</body>
+</html>
